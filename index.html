@@ -4381,6 +4381,7 @@ window.BMTDocx = (function () {
 
   const FONT_EN = 'Arial';
   const FONT_ZH = '微軟正黑體';
+  const SZ_SCHED = 20;  // 10 pt (conditioning schedule table)
   const SZ_BODY = 24;   // 12 pt
   const SZ_TITLE = 28;  // 14 pt
 
@@ -4621,7 +4622,7 @@ window.BMTDocx = (function () {
     const days = calc.scheduleDays;
     const labelW = 1900;
     const colW = Math.floor((10546 - labelW) / Math.max(1, days.length));
-    const cp = (txt, opts = {}) => pXml(txt, { sz: SZ_BODY, align: 'center', spaceBefore: 10, spaceAfter: 10, line: 220, ...opts });
+    const cp = (txt, opts = {}) => pXml(txt, { sz: SZ_SCHED, align: 'center', spaceBefore: 10, spaceAfter: 10, line: 200, ...opts });
     const sc = (content, opts = {}) => cellXml(content, { padV: 22, padH: 30, ...opts });
     const rows = [];
 
@@ -6238,9 +6239,9 @@ window.BMTDocx = (function () {
       </table>`;
     }
 
-    // Schedule Table Preview
+    // Schedule Table Preview (10pt)
     const days = calc.scheduleDays;
-    let schedHtml = `<table class="doc-table" style="text-align:center;font-size:10.5px;">
+    let schedHtml = `<table class="doc-table" style="text-align:center;font-size:10pt;">
       <tr><td class="lbl" style="text-align:left;background:#fff2cc;">Day</td>${days.map(x => `<td style="background:${x.day===0?'#fce4d6':'#fff2cc'};font-weight:700;${x.day===0?'color:#ff0000;':''}">${x.day>0?'+'+x.day:x.day}</td>`).join('')}</tr>
       <tr><td class="lbl" style="text-align:left;">Week Days</td>${days.map(x => `<td style="background:${x.day===0?'#fce4d6':'#efefef'};">${x.weekday}</td>`).join('')}</tr>
       <tr><td class="lbl" style="text-align:left;">Date</td>${days.map(x => `<td style="background:${x.day===0?'#fce4d6':'#efefef'};${x.day===0?'font-weight:700;':''}">${x.dateStr}</td>`).join('')}</tr>
