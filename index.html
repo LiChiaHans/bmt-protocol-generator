@@ -1196,7 +1196,6 @@ body {
       <button class="btn btn-ghost" id="btnSaveJson" title="儲存草稿 JSON">存檔</button>
       <button class="btn btn-ghost" id="btnLoadJson" title="讀取草稿 JSON">讀檔</button>
       <input type="file" id="jsonFileInput" accept=".json" style="display:none;">
-      <button class="btn btn-success" id="btnExportDocx">⬇ 匯出 Word (.docx)</button>
     </div>
   </header>
 
@@ -1860,7 +1859,7 @@ window.BMT_DEMO_CASES = {
       folicAcid: true,
       gcsf: true,
       gcsfStartD: 5,
-      gcsfFreq: 'QD',
+      gcsfFreq: 'QN',
       gcsfAuto: true,
       gcsfMcg: 300,
       gcsfFluid: 20,
@@ -3709,7 +3708,7 @@ window.BMTCalc = (function () {
     }
     if (state.meds.gcsf) {
       const gsD = Number(state.meds.gcsfStartD ?? (mode === 'auto' ? 2 : 5));
-      medOrders.push(`# G-CSF 5 ug/kg (Filgrastim ${gcsfMcg} mcg) in N/S ${gcsfFluid} ml IF 30 minutes ${state.meds.gcsfFreq || 'QD'} since ${fmtDayLabel(gsD)} (${fmtMD(dayDate(gsD))})`);
+      medOrders.push(`# G-CSF 5 ug/kg (Filgrastim ${gcsfMcg} mcg) in N/S ${gcsfFluid} ml IF 30 minutes ${state.meds.gcsfFreq || 'QN'} since ${fmtDayLabel(gsD)} (${fmtMD(dayDate(gsD))})`);
     }
     // Clinical serology checks for HBV prophylaxis & CMV Letermovir
     const hbvStr = (state.recipient.hbv || '').toUpperCase();
@@ -5277,11 +5276,11 @@ window.BMTDocx = (function () {
         <div class="val">${hasHW ? `${a.ibwCTN.toFixed(1)} kg` : '—'}</div>
       </div>
       <div class="metric-box adj-metric">
-        <div class="label">Adjusted BW ${isAdj ? '★使用中' : ''}</div>
+        <div class="label">Adjusted BW${isAdj ? '<br><span style="color:#ff0000;">★使用中</span>' : ''}</div>
         <div class="val">${hasHW ? `${a.adjBW.toFixed(1)} kg` : '—'}</div>
       </div>
       <div class="metric-box adj-metric">
-        <div class="label">Adjusted BSA ${isAdj ? '★使用中' : ''}</div>
+        <div class="label">Adjusted BSA${isAdj ? '<br><span style="color:#ff0000;">★使用中</span>' : ''}</div>
         <div class="val">${hasHW ? `${a.adjBSA.toFixed(2)} m²` : '—'}</div>
       </div>
       <div class="metric-box highlight">
@@ -5316,10 +5315,8 @@ window.BMTDocx = (function () {
           <tbody>
             <tr><td class="lbl" colspan="2">Name</td><td colspan="2"><input data-path="recipient.name" value="${escHtml(r.name)}"></td></tr>
             <tr><td class="lbl" colspan="2">Chart No.</td><td colspan="2"><input data-path="recipient.chartNo" value="${escHtml(r.chartNo)}"></td></tr>
-            <tr><td class="lbl" colspan="2">Age / Gender</td>
-              <td><input type="number" data-path="recipient.age" value="${escHtml(r.age)}" placeholder="Age"></td>
-              <td><select data-path="recipient.gender">${genderOpts(r.gender, true)}</select></td>
-            </tr>
+            <tr><td class="lbl" colspan="2">Age</td><td colspan="2"><input type="number" data-path="recipient.age" value="${escHtml(r.age)}" placeholder="Age"></td></tr>
+            <tr><td class="lbl" colspan="2">Gender</td><td colspan="2"><select data-path="recipient.gender">${genderOpts(r.gender, true)}</select></td></tr>
             <tr><td class="lbl" colspan="2">Height(cm) | Weight(kg)</td>
               <td><input type="number" step="0.1" data-path="recipient.height" value="${escHtml(r.height)}" placeholder="身高 cm"></td>
               <td><input type="number" step="0.1" data-path="recipient.weight" value="${escHtml(r.weight)}" placeholder="體重 kg"></td>
@@ -5345,7 +5342,7 @@ window.BMTDocx = (function () {
       const hlaRows = loci.map((loc, idx) => {
         const vals = state.hla[loc] || ['', '', '', ''];
         return `<tr>
-          ${idx === 0 ? `<td class="lbl" rowspan="6" style="text-align:center;width:78px;white-space:normal;"><div class="hla-auto-wrap"><strong>HLA</strong><label style="font-size:11px;font-weight:500;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;"><input type="checkbox" id="hlaAutoCalcChk" ${state.hla.autoCalc ? 'checked' : ''}><span>自動算<br>Match</span></label></div></td>` : ''}
+          ${idx === 0 ? `<td class="lbl" rowspan="6" style="text-align:center;width:78px;"><strong>HLA</strong></td>` : ''}
           <td class="sublbl">${loc}</td>
           <td><input data-hla="${loc}.0" value="${escHtml(vals[0])}" style="text-align:center;"></td>
           <td><input data-hla="${loc}.1" value="${escHtml(vals[1])}" style="text-align:center;"></td>
@@ -6244,8 +6241,8 @@ window.BMTDocx = (function () {
         <div class="field">
           <label><span class="lbl-main">G-CSF 頻率</span></label>
           <select data-med-val="gcsfFreq">
+            <option value="QN" ${(!M.gcsfFreq || M.gcsfFreq==='QN')?'selected':''}>QN</option>
             <option value="QD" ${M.gcsfFreq==='QD'?'selected':''}>QD</option>
-            <option value="QN" ${M.gcsfFreq==='QN'?'selected':''}>QN</option>
           </select>
         </div>
         <div class="field">
@@ -6775,7 +6772,7 @@ window.BMTDocx = (function () {
       alert('匯出 Word 檔發生錯誤：' + err.message);
     }
   }
-  $('btnExportDocx').addEventListener('click', doExportDocx);
+  if ($('btnExportDocx')) $('btnExportDocx').addEventListener('click', doExportDocx);
   $('btnExportDocx2').addEventListener('click', doExportDocx);
   $('btnPrintPreview').addEventListener('click', () => window.print());
 
