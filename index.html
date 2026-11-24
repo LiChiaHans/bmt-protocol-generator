@@ -758,9 +758,9 @@ body {
   border: 1px solid var(--border);
   border-top: none;
   border-radius: 0 0 var(--radius) var(--radius);
-  font-family: Arial, "微軟正黑體", "Microsoft JhengHei", sans-serif;
+  font-family: Calibri, "Microsoft JhengHei", sans-serif;
   font-size: 12pt;
-  line-height: 1.5;
+  line-height: 18pt;
   color: #111827;
 }
 
@@ -1617,20 +1617,20 @@ window.BMT_PRESETS = {
     {
       id: 'auto_hd_mel',
       name: 'HD Melphalan (Multiple Myeloma)',
-      desc: 'Melphalan 200 mg/m2 (or 140 mg/m2) on D-2',
+      desc: 'Melphalan 100 (或 70) mg/m²/day on D-4 ~ D-3（兩天總 200 或 140 mg/m²，依年紀及腎功能）',
       patch: {
-        admissionD: -4,
-        conditioningName: 'High-dose Melphalan (200 mg/m2)',
-        chemoStartD: -2,
-        chemoEndD: -2,
+        admissionD: -5,
+        conditioningName: 'High-dose Melphalan (100 mg/m2 x2d)',
+        chemoStartD: -4,
+        chemoEndD: -3,
         drugs: {
-          rituximab: { enabled: false, route: 'IV', dose: 375, day: -4 },
-          brentuximab: { enabled: false, dose: 1.8, day: -4 },
+          rituximab: { enabled: false, route: 'IV', dose: 375, day: -5 },
+          brentuximab: { enabled: false, dose: 1.8, day: -5 },
           bcnu: { enabled: false, dose: 300, day: -7 },
           bendamustine: { enabled: false, dose: 200, startD: -7, endD: -6 },
           etoposide: { enabled: false, dose: 200, startD: -6, endD: -3 },
           cytarabine: { enabled: false, dose: 100, startD: -6, endD: -3 },
-          melphalan: { enabled: true, dose: 200, startD: -2, endD: -2, fluid: 250 },
+          melphalan: { enabled: true, dose: 100, startD: -4, endD: -3, fluid: 250 },
           gemcitabine: { enabled: false, dose: 1875, day1: -7, day2: -3 },
           busulfanAuto: { enabled: false, dose: 100, unit: 'mg/m2', startD: -7, endD: -4 },
           thiotepaAuto: { enabled: false, dose: 5, freq: 'BID', startD: -4, endD: -3 }
@@ -2464,10 +2464,10 @@ window.BMT_REFERENCE_DATA = {
       badge: 'Auto MM',
       presetMode: 'auto',
       presetId: 'auto_hd_mel',
-      ref: '標準 200 mg/m² D-2（腎功能不全或高齡可減量至 140 mg/m²）；須距幹細胞輸注 > 24 小時',
-      days: [-4, -3, -2, -1, 0],
+      ref: '實際施打於 D-4 及 D-3 兩天：各打 100 mg/m²/day（總 200 mg/m²）或 70 mg/m²/day（總 140 mg/m²），取決於病人年紀及腎功能；須距幹細胞輸注 > 24 小時',
+      days: [-5, -4, -3, -2, -1, 0],
       rows: [
-        { drug: 'Melphalan (200 或 140 mg/m²)', marks: [-2] }
+        { drug: 'Melphalan (100 或 70 mg/m²/d)', marks: [-4, -3] }
       ]
     },
     {
@@ -2848,33 +2848,75 @@ window.BMTCalc = (function () {
     };
   }
 
-  // Tokenizer for Royal Blue day numbers (D-6 -> -6) and parenthesized date ranges ((11/16 ~ 11/20))
+  // Tokenizer for Royal Blue day numbers (D-6 -> -6), parenthesized date ranges ((11/16 ~ 11/20)), and calculated drug doses
   function tokenizeOrderDates(text) {
     const str = String(text ?? '');
     const tokens = [];
-    // Match either:
-    //  Group 1+2: Day marker D followed by (-N, +N, or 0) not preceded by alnum and not followed by digit/W
-    //  Group 3: Date or date range inside parentheses (e.g., 11/16 ~ 11/20, 11/23, 11/16-11/21, 2026/11/16)
-    const re = /(?<![A-Za-z0-9])(D)([+-]\d+|0)(?![0-9A-Za-z])|(\()([^()]*?)(\))/g;
-    let last = 0;
-    let m;
 
-    const pushDateInner = (inner) => {
-      // Highlight date tokens like 2026/11/16, 11/16 ~ 11/20, 11/16 - 11/20, 11/16~11/21, 11/23 inside parentheses
-      const dateRe = /(\d{4}\/\d{1,2}\/\d{1,2}|\d{1,2}\/\d{1,2})(?:\s*[~～-]\s*(?:\d{4}\/\d{1,2}\/\d{1,2}|\d{1,2}\/\d{1,2}))?/g;
+    // Highlight calculated drug doses in plain (non-parenthesized) text spans
+    const pushPlainWithDoses = (seg) => {
+      if (!seg) return;
+      // Match calculated doses only (excludes fixed doses like Micafungin 50 mg, Solu-medrol 40 mg, Leucovorin 15 mg, etc.):
+      //  1. "取 <num> mg" (ATG, Busulfan Auto, Pre-Cy, PTCy, CsA PTCy, Tacrolimus, MTX, Brentuximab, Gemcitabine)
+      //  2. "Fludarabine <num> mg"
+      //  3. "<num> mg" immediately followed by " in " unless preceded by "Micafungin " (Busulfan, Thiotepa, Endoxan, Mesna, Melphalan, CsA, Rituximab, BCNU, Bendamustine, Etoposide, Cytarabine)
+      //  4. "<num>#" before BIDAC/TIDAC PO (Myfortic)
+      //  5. "run <num> ml/hour" (Gemcitabine pump rate)
+      const doseRe = /(取\s+)(\d+(?:\.\d+)?\s*mg)\b|(Fludarabine\s+)(\d+(?:\.\d+)?\s*mg)\b|(?<!Micafungin\s)(\d+(?:\.\d+)?\s*mg)(?=\s+in\s+)|(\d+#)(?=\s+(?:BIDAC|TIDAC)\s+PO)|(run\s+)(\d+(?:\.\d+)?\s*ml\/hour)/g;
+      let pLast = 0;
+      let dm;
+      while ((dm = doseRe.exec(seg)) !== null) {
+        if (dm.index > pLast) tokens.push({ text: seg.slice(pLast, dm.index), royalBlue: false });
+        if (dm[1] !== undefined) {
+          tokens.push({ text: dm[1], royalBlue: false });
+          tokens.push({ text: dm[2], royalBlue: true });
+        } else if (dm[3] !== undefined) {
+          tokens.push({ text: dm[3], royalBlue: false });
+          tokens.push({ text: dm[4], royalBlue: true });
+        } else if (dm[5] !== undefined) {
+          tokens.push({ text: dm[5], royalBlue: true });
+        } else if (dm[6] !== undefined) {
+          tokens.push({ text: dm[6], royalBlue: true });
+        } else if (dm[7] !== undefined) {
+          tokens.push({ text: dm[7], royalBlue: false });
+          tokens.push({ text: dm[8], royalBlue: true });
+        }
+        pLast = dm.index + dm[0].length;
+      }
+      if (pLast < seg.length) tokens.push({ text: seg.slice(pLast), royalBlue: false });
+    };
+
+    const pushParenInner = (inner) => {
+      // Highlight dates (11/16 ~ 11/20, 2026/11/16) AND calculated doses inside parens (Filgrastim 375 mcg, total 1200 cGy)
+      const innerRe = /(\d{4}\/\d{1,2}\/\d{1,2}|\d{1,2}\/\d{1,2})(?:\s*[~～-]\s*(?:\d{4}\/\d{1,2}\/\d{1,2}|\d{1,2}\/\d{1,2}))?|(Filgrastim\s+)(\d+(?:\.\d+)?\s*mcg)\b|(total\s+)(\d+(?:\.\d+)?\s*cGy)\b/g;
       let iLast = 0;
       let dm;
-      while ((dm = dateRe.exec(inner)) !== null) {
+      while ((dm = innerRe.exec(inner)) !== null) {
         if (dm.index > iLast) tokens.push({ text: inner.slice(iLast, dm.index), royalBlue: false });
-        tokens.push({ text: dm[0], royalBlue: true });
+        if (dm[1] !== undefined) {
+          tokens.push({ text: dm[0], royalBlue: true });
+        } else if (dm[2] !== undefined) {
+          tokens.push({ text: dm[2], royalBlue: false });
+          tokens.push({ text: dm[3], royalBlue: true });
+        } else if (dm[4] !== undefined) {
+          tokens.push({ text: dm[4], royalBlue: false });
+          tokens.push({ text: dm[5], royalBlue: true });
+        }
         iLast = dm.index + dm[0].length;
       }
       if (iLast < inner.length) tokens.push({ text: inner.slice(iLast), royalBlue: false });
     };
 
+    // Match either:
+    //  Group 1+2: Day marker D followed by (-N, +N, or 0) not preceded by alnum and not followed by digit/W
+    //  Group 3..5: Parenthesized content (...)
+    const re = /(?<![A-Za-z0-9])(D)([+-]\d+|0)(?![0-9A-Za-z])|(\()([^()]*?)(\))/g;
+    let last = 0;
+    let m;
+
     while ((m = re.exec(str)) !== null) {
       if (m.index > last) {
-        tokens.push({ text: str.slice(last, m.index), royalBlue: false });
+        pushPlainWithDoses(str.slice(last, m.index));
       }
       if (m[1] !== undefined) {
         tokens.push({ text: m[1], royalBlue: false });
@@ -2882,8 +2924,8 @@ window.BMTCalc = (function () {
       } else {
         const inner = m[4];
         tokens.push({ text: '(', royalBlue: false });
-        if (/\d{1,2}\/\d{1,2}/.test(inner)) {
-          pushDateInner(inner);
+        if (/\d{1,2}\/\d{1,2}|Filgrastim\s+\d|total\s+\d+(?:\.\d+)?\s*cGy/i.test(inner)) {
+          pushParenInner(inner);
         } else {
           tokens.push({ text: inner, royalBlue: false });
         }
@@ -2892,7 +2934,7 @@ window.BMTCalc = (function () {
       last = m.index + m[0].length;
     }
     if (last < str.length) {
-      tokens.push({ text: str.slice(last), royalBlue: false });
+      pushPlainWithDoses(str.slice(last));
     }
     return tokens;
   }
@@ -4401,16 +4443,16 @@ window.BMTDocx = (function () {
       .replace(/'/g, '&apos;');
   }
 
-  const FONT_EN = 'Arial';
-  const FONT_ZH = '微軟正黑體';
+  const FONT_MAIN = 'Calibri';
   const SZ_SCHED = 20;  // 10 pt (conditioning schedule table)
   const SZ_BODY = 24;   // 12 pt
   const SZ_TITLE = 28;  // 14 pt
+  const LINE_EXACT_18PT = 360; // 18 pt exact line height (18 * 20 twips)
 
   function runXml(text, opts = {}) {
     const sz = opts.sz || SZ_BODY;
     const rPr = [
-      `<w:rFonts w:ascii="${FONT_EN}" w:hAnsi="${FONT_EN}" w:eastAsia="${FONT_ZH}" w:cs="${FONT_EN}"/>`,
+      `<w:rFonts w:ascii="${FONT_MAIN}" w:hAnsi="${FONT_MAIN}" w:eastAsia="${FONT_MAIN}" w:cs="${FONT_MAIN}"/>`,
       `<w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/>`,
       opts.bold ? '<w:b/><w:bCs/>' : '',
       opts.italic ? '<w:i/>' : '',
@@ -4428,15 +4470,16 @@ window.BMTDocx = (function () {
   function pXml(runs, opts = {}) {
     const pageBreak = opts.pageBreakBefore ? '<w:pageBreakBefore/>' : '';
     const align = opts.align ? `<w:jc w:val="${opts.align}"/>` : '';
-    const before = opts.spaceBefore !== undefined ? opts.spaceBefore : 25;
-    const after = opts.spaceAfter !== undefined ? opts.spaceAfter : 40;
-    const line = opts.line || 260;
+    const before = opts.spaceBefore !== undefined ? opts.spaceBefore : 0;
+    const after = opts.spaceAfter !== undefined ? opts.spaceAfter : 0;
+    const line = opts.line || LINE_EXACT_18PT;
+    const lineRule = opts.lineRule || 'exact';
     const indent = opts.indentLeft ? `<w:ind w:left="${opts.indentLeft}"/>` : '';
     const borderBottom = opts.borderBottom
       ? `<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="2" w:color="1774D3"/></w:pBdr>`
       : '';
     const rContent = typeof runs === 'string' ? runXml(runs, opts) : runs.join('');
-    return `<w:p><w:pPr>${pageBreak}${align}<w:spacing w:before="${before}" w:after="${after}" w:line="${line}" w:lineRule="auto"/>${indent}${borderBottom}</w:pPr>${rContent}</w:p>`;
+    return `<w:p><w:pPr>${pageBreak}${align}<w:spacing w:before="${before}" w:after="${after}" w:line="${line}" w:lineRule="${lineRule}"/>${indent}${borderBottom}</w:pPr>${rContent}</w:p>`;
   }
 
   function cellXml(contentXml, opts = {}) {
@@ -4445,7 +4488,7 @@ window.BMTDocx = (function () {
     const vm = opts.vMerge === 'restart' ? '<w:vMerge w:val="restart"/>' : (opts.vMerge === 'continue' ? '<w:vMerge/>' : '');
     const shd = opts.fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${opts.fill}"/>` : '';
     const vAlign = `<w:vAlign w:val="${opts.vAlign || 'center'}"/>`;
-    const padV = opts.padV !== undefined ? opts.padV : 28;
+    const padV = opts.padV !== undefined ? opts.padV : 18;
     const padH = opts.padH !== undefined ? opts.padH : 75;
     const mar = `<w:tcMar><w:top w:w="${padV}" w:type="dxa"/><w:bottom w:w="${padV}" w:type="dxa"/><w:left w:w="${padH}" w:type="dxa"/><w:right w:w="${padH}" w:type="dxa"/></w:tcMar>`;
     return `<w:tc><w:tcPr>${w}${gs}${vm}${shd}${vAlign}${mar}</w:tcPr>${contentXml}</w:tc>`;
@@ -4483,18 +4526,18 @@ window.BMTDocx = (function () {
       }
     }
     if (!runs.length) runs.push(runXml('', { sz: SZ_BODY }));
-    return pXml(runs, { spaceBefore: 6, spaceAfter: 6, line: 220, ...opts });
+    return pXml(runs, { spaceBefore: 0, spaceAfter: 0, line: LINE_EXACT_18PT, ...opts });
   }
 
   function directionRatioParagraph(text, numColor) {
     const s = String(text || '');
     const m = s.match(/^(.*?)(\d+\s*\/\s*\d+)(.*)$/);
-    if (!m) return pXml(s, { sz: SZ_BODY, align: 'center', spaceBefore: 6, spaceAfter: 6, line: 220 });
+    if (!m) return pXml(s, { sz: SZ_BODY, align: 'center', spaceBefore: 0, spaceAfter: 0, line: LINE_EXACT_18PT });
     const runs = [];
     if (m[1]) runs.push(runXml(m[1], { sz: SZ_BODY }));
     runs.push(runXml(m[2], { sz: SZ_BODY, bold: true, color: numColor }));
     if (m[3]) runs.push(runXml(m[3], { sz: SZ_BODY }));
-    return pXml(runs, { align: 'center', spaceBefore: 6, spaceAfter: 6, line: 220 });
+    return pXml(runs, { align: 'center', spaceBefore: 0, spaceAfter: 0, line: LINE_EXACT_18PT });
   }
 
   function richOrderP(text, opts = {}) {
@@ -4517,7 +4560,7 @@ window.BMTDocx = (function () {
     const d = state.donor;
     const isAuto = state.mode === 'auto';
     const rows = [];
-    const cp = (txt, opts = {}) => pXml(txt, { sz: SZ_BODY, spaceBefore: 6, spaceAfter: 6, line: 220, ...opts });
+    const cp = (txt, opts = {}) => pXml(txt, { sz: SZ_BODY, spaceBefore: 0, spaceAfter: 0, line: LINE_EXACT_18PT, ...opts });
     const cpPos = (txt, opts = {}) => positiveBoldParagraph(txt, opts);
 
     if (isAuto) {
@@ -4643,9 +4686,9 @@ window.BMTDocx = (function () {
   function buildScheduleTable(calc) {
     const days = calc.scheduleDays;
     const labelW = 1900;
-    const colW = Math.floor((10546 - labelW) / Math.max(1, days.length));
-    const cp = (txt, opts = {}) => pXml(txt, { sz: SZ_SCHED, align: 'center', spaceBefore: 10, spaceAfter: 10, line: 200, ...opts });
-    const sc = (content, opts = {}) => cellXml(content, { padV: 22, padH: 30, ...opts });
+    const colW = Math.floor((10466 - labelW) / Math.max(1, days.length));
+    const cp = (txt, opts = {}) => pXml(txt, { sz: SZ_SCHED, align: 'center', spaceBefore: 0, spaceAfter: 0, line: LINE_EXACT_18PT, ...opts });
+    const sc = (content, opts = {}) => cellXml(content, { padV: 18, padH: 30, ...opts });
     const rows = [];
 
     // Day row
@@ -4683,14 +4726,15 @@ window.BMTDocx = (function () {
       ${days.map(d => sc(cp(String(d.ivf)), { width: colW, fill: 'F7F7F7' })).join('')}
     </w:tr>`);
 
-    return tableXml(rows, 10546);
+    return tableXml(rows, 10466);
   }
 
   function buildAboImageParagraph() {
     // 6.5 inches wide x ~3.1 inches tall (in EMUs: 1 inch = 914400)
+    // Explicitly use lineRule="auto" so the inline image is NOT clipped by the 18pt exact line height!
     const cx = 5943600;
     const cy = 2850000;
-    return `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="80" w:after="80"/></w:pPr><w:r><w:drawing>
+    return `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="80" w:after="80" w:line="240" w:lineRule="auto"/></w:pPr><w:r><w:drawing>
       <wp:inline distT="0" distB="0" distL="0" distR="0"
         xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
         xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
@@ -4783,9 +4827,24 @@ window.BMTDocx = (function () {
     body.push(buildScheduleTable(calc));
     body.push(pXml('', { spaceBefore: 30, spaceAfter: 30 }));
 
-    // Conditioning Drug Orders
+    // Conditioning Drug Orders (format ATG "Pre-medication:" bold + indented sub-orders)
     calc.conditioningOrders.forEach(order => {
-      body.push(richOrderP(order, { spaceBefore: 25, spaceAfter: 35 }));
+      if (order.includes('\nPre-medication:\n')) {
+        const lines = order.split('\n');
+        let inPremed = false;
+        lines.forEach(ln => {
+          if (ln.trim() === 'Pre-medication:') {
+            inPremed = true;
+            body.push(pXml('Pre-medication:', { bold: true, spaceBefore: 20, spaceAfter: 10 }));
+          } else if (inPremed) {
+            body.push(richOrderP(ln, { indentLeft: 360, spaceBefore: 10, spaceAfter: 15 }));
+          } else {
+            body.push(richOrderP(ln, { spaceBefore: 25, spaceAfter: 20 }));
+          }
+        });
+      } else {
+        body.push(richOrderP(order, { spaceBefore: 25, spaceAfter: 35 }));
+      }
     });
 
     // Page 4: Section (3), (4), (5) + Care Team Signatures
@@ -4860,7 +4919,7 @@ window.BMTDocx = (function () {
     ${body.join('\n')}
     <w:sectPr>
       <w:pgSz w:w="11906" w:h="16838"/>
-      <w:pgMar w:top="620" w:right="680" w:bottom="620" w:left="680" w:header="400" w:footer="400" w:gutter="0"/>
+      <w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="450" w:footer="450" w:gutter="0"/>
     </w:sectPr>
   </w:body>
 </w:document>`;
@@ -4890,10 +4949,15 @@ window.BMTDocx = (function () {
   <w:docDefaults>
     <w:rPrDefault>
       <w:rPr>
-        <w:rFonts w:ascii="${FONT_EN}" w:hAnsi="${FONT_EN}" w:eastAsia="${FONT_ZH}" w:cs="${FONT_EN}"/>
+        <w:rFonts w:ascii="${FONT_MAIN}" w:hAnsi="${FONT_MAIN}" w:eastAsia="${FONT_MAIN}" w:cs="${FONT_MAIN}"/>
         <w:sz w:val="${SZ_BODY}"/><w:szCs w:val="${SZ_BODY}"/>
       </w:rPr>
     </w:rPrDefault>
+    <w:pPrDefault>
+      <w:pPr>
+        <w:spacing w:before="0" w:after="0" w:line="${LINE_EXACT_18PT}" w:lineRule="exact"/>
+      </w:pPr>
+    </w:pPrDefault>
   </w:docDefaults>
 </w:styles>`;
 
@@ -6304,7 +6368,22 @@ window.BMTDocx = (function () {
       <div class="order-line muted">Formula: Ideal BW (BMI 22) = (Height in m)² × 22；Adjusted BW = Ideal BW + 0.25 × (Actual BW − Ideal BW)（若 Actual BW &lt; Ideal BW 則取 Actual BW）；BSA (Mosteller) = √(Height(cm) × BW(kg) / 3600)</div>
       <div class="order-line muted">${basisNote}</div>
       ${schedHtml}
-      ${calc.conditioningOrders.map(o => `<div class="order-line">${renderRichOrderHtml(o)}</div>`).join('')}
+      ${calc.conditioningOrders.map(o => {
+        if (o.includes('\nPre-medication:\n')) {
+          let inPremed = false;
+          return o.split('\n').map(ln => {
+            if (ln.trim() === 'Pre-medication:') {
+              inPremed = true;
+              return '<div class="order-line bold">Pre-medication:</div>';
+            }
+            if (inPremed) {
+              return `<div class="order-line indent">${renderRichOrderHtml(ln)}</div>`;
+            }
+            return `<div class="order-line">${renderRichOrderHtml(ln)}</div>`;
+          }).join('');
+        }
+        return `<div class="order-line">${renderRichOrderHtml(o)}</div>`;
+      }).join('')}
 
       <div class="page-break-bar">第 4 頁</div>
       <h3 class="sec-title sec-page-break">(3) Stem cell transplantation order</h3>
