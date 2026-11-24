@@ -1039,7 +1039,6 @@ body {
     </nav>
 
     <div class="top-actions">
-      <button class="btn btn-ghost" id="btnPasteImport" title="從 Excel / Word / Google Docs 複製 Candidate 表格直接貼上">📋 貼上 Candidate 表</button>
       <button class="btn btn-ghost" id="btnLoadDemo" title="載入範例病患資料">載入範例</button>
       <button class="btn btn-ghost" id="btnClearForm" title="清空病患資料">清空</button>
       <button class="btn btn-ghost" id="btnSaveJson" title="儲存草稿 JSON">存檔</button>
@@ -1626,7 +1625,7 @@ window.BMT_DEMO_CASES = {
     mode: 'allo',
     recipient: {
       name: '王大明',
-      chartNo: '7001234',
+      chartNo: '',
       age: '58',
       gender: 'M',
       height: '168',
@@ -1648,7 +1647,7 @@ window.BMT_DEMO_CASES = {
     donor: {
       label: 'Donor',
       name: 'MUD',
-      chartNo: '3458000000012345678',
+      chartNo: '',
       age: '32',
       gender: 'F',
       height: '165',
@@ -1687,7 +1686,7 @@ window.BMT_DEMO_CASES = {
     admissionDate: '2026-12-07',
     conditioningName: 'RIC (Flu5Bu2Cy1)',
     gvhdProphylaxis: 'rATG + CsA + MMF',
-    donorRelation: 'unrelated',
+    donorRelation: 'auto',
     stemCellSource: 'PBSC',
     cd34Dose: '5.0',
     dosingBasis: 'adjusted',
@@ -1749,7 +1748,7 @@ window.BMT_DEMO_CASES = {
     mode: 'auto',
     recipient: {
       name: '林小美',
-      chartNo: '2409876',
+      chartNo: '',
       age: '65',
       gender: 'F',
       height: '160',
@@ -1839,7 +1838,7 @@ window.BMT_DEMO_CASES = {
     mode: 'ptcy',
     recipient: {
       name: '陳志強',
-      chartNo: '2065432',
+      chartNo: '',
       age: '59',
       gender: 'M',
       height: '169',
@@ -1861,7 +1860,7 @@ window.BMT_DEMO_CASES = {
     donor: {
       label: 'Donor (女兒)',
       name: '陳小萱',
-      chartNo: '3651111',
+      chartNo: '',
       age: '28',
       gender: 'F',
       height: '162',
@@ -1900,7 +1899,7 @@ window.BMT_DEMO_CASES = {
     admissionDate: '2026-12-04',
     conditioningName: 'RIC',
     gvhdProphylaxis: 'PTCy + Tacrolimus + MMF',
-    donorRelation: 'related',
+    donorRelation: 'auto',
     stemCellSource: 'PBSC',
     cd34Dose: '5.50',
     dosingBasis: 'adjusted',
@@ -1959,6 +1958,54 @@ window.BMT_DEMO_CASES = {
     ivfOverrides: {}
   }
 };
+
+// Clean empty initial states (no pre-filled patient/donor/HLA/chart number data until user clicks 載入範例)
+window.BMT_EMPTY_STATES = (function () {
+  const emptyPerson = (extra) => Object.assign({
+    name: '', chartNo: '', age: '', gender: '', height: '', weight: '', bloodType: '',
+    testDate: '', hbv: '', hcv: '', cmv: '', ebvVca: '', ebvOthers: '',
+    hiv: '', htlv: '', vzv: '', rpr: '', toxo: '', otherComorb: ''
+  }, extra || {});
+
+  const emptyHla = () => ({
+    A: ['', '', '', ''], B: ['', '', '', ''], C: ['', '', '', ''],
+    DR: ['', '', '', ''], DQ: ['', '', '', ''], DP: ['', '', '', ''],
+    autoCalc: true, rejectionManual: '', gvhdManual: ''
+  });
+
+  const makeEmpty = (mode) => {
+    const base = JSON.parse(JSON.stringify(window.BMT_DEMO_CASES[mode]));
+    base.recipient = emptyPerson();
+    base.donor = emptyPerson({ label: 'Donor' });
+    base.hla = emptyHla();
+    base.diagnosis = '';
+    base.comorbidity = '';
+    base.status = '';
+    base.allergy = '';
+    base.admissionDate = '';
+    base.cd34Dose = '';
+    base.vs = '';
+    base.donorRelation = 'auto';
+    base.primaryCare = '';
+    base.bmtCr = '李宗翰';
+    base.bedCr = '曾泰中';
+    base.director = '姚明';
+    if (base.meds) {
+      base.meds.feburicNote = '';
+      base.meds.letermovirNote = '';
+      base.meds.otherOrders = '';
+    }
+    base.customConditioningNotes = '';
+    base.ivfOverrides = {};
+    return base;
+  };
+
+  return {
+    allo: makeEmpty('allo'),
+    auto: makeEmpty('auto'),
+    ptcy: makeEmpty('ptcy')
+  };
+})();
 
 
 // Comprehensive Hospital BMT Conditioning Regimens & Standard Drug Dosage Reference
@@ -2461,44 +2508,99 @@ window.BMTCalc = (function () {
   // HLA Mismatch & Rejection/GvHD Match Calculator (including 8-allele A/B/C/DR mismatch for NHI Letermovir)
   function normAllele(a) {
     const s = String(a || '').trim();
-    if (!s || s === '-' || s === '—' || s === '/' || s.toUpperCase() === 'N/A') return '';
+    if (!s || /^[-－—–/]+$/.test(s) || /^N\/?A$/i.test(s)) return '';
     return s;
+  }
+
+  // Canonical allele string for comparison (handles leading zeros 2:02 vs 02:02, A*02:01, 3-field 02:01:01, full-width colon)
+  function canonAllele(a) {
+    const raw = normAllele(a);
+    if (!raw) return '';
+    const cleaned = raw
+      .replace(/：/g, ':')
+      .replace(/\s+/g, '')
+      .replace(/^[A-Za-z0-9]+\*/, '')
+      .toUpperCase();
+    const parts = cleaned.split(':').filter(Boolean);
+    if (!parts.length) return cleaned;
+    const normField = (f, idx) => {
+      let s = f;
+      // Strip trailing G/P group notation on 2nd field (keep N/L/S/Q expression suffixes)
+      if (idx === 1) s = s.replace(/[GP]$/, '');
+      const m = s.match(/^(\d+)([A-Z]*)$/);
+      if (m) {
+        const num = m[1].length === 1 ? '0' + m[1] : m[1];
+        return num + m[2];
+      }
+      return s;
+    };
+    const twoFields = parts.slice(0, 2).map((p, i) => normField(p, i));
+    return twoFields.join(':');
   }
 
   function calcHLA(hla) {
     const loci = ['A', 'B', 'C', 'DR', 'DQ', 'DP'];
     const abcdLoci = new Set(['A', 'B', 'C', 'DR']);
     const locusResults = {};
+    const testedLoci = [];
+    const rejMismatches = [];
+    const gvhdMismatches = [];
     let rejMatched = 0, gvhdMatched = 0, totalPossible = 0;
     let abcdRejMismatch = 0, abcdGvhdMismatch = 0, abcdTotal = 0, abcdBidirectionalMismatch = 0;
 
     loci.forEach(locus => {
       const arr = hla[locus] || ['', '', '', ''];
-      const r1 = normAllele(arr[0]);
-      const r2 = normAllele(arr[1]) || r1; // homozygous if second is '-' or blank
-      const d1 = normAllele(arr[2]);
-      const d2 = normAllele(arr[3]) || d1;
+      const dispR0 = normAllele(arr[0]);
+      const dispR1 = normAllele(arr[1]);
+      const dispD0 = normAllele(arr[2]);
+      const dispD1 = normAllele(arr[3]);
+
+      const rawR0 = canonAllele(arr[0]);
+      const rawR1 = canonAllele(arr[1]);
+      const rawD0 = canonAllele(arr[2]);
+      const rawD1 = canonAllele(arr[3]);
+
+      // Homozygous: if either allele is '-' or blank, both chromosomes carry the tested allele
+      const r1 = rawR0 || rawR1;
+      const r2 = rawR1 || rawR0;
+      const d1 = rawD0 || rawD1;
+      const d2 = rawD1 || rawD0;
 
       const hasR = Boolean(r1);
       const hasD = Boolean(d1);
 
       let r1Mismatch = false, r2Mismatch = false, d1Mismatch = false, d2Mismatch = false;
       if (hasR && hasD) {
+        testedLoci.push(locus);
         totalPossible += 2;
         const rSet = [r1, r2];
         const dSet = [d1, d2];
 
-        // Rejection direction (HvG): Donor antigens NOT in Recipient
+        // Rejection direction (HvG): Donor alleles NOT present in Recipient
         const d1InR = rSet.includes(d1);
         const d2InR = rSet.includes(d2);
-        const locRejMatch = (d1 === d2) ? (d1InR ? 2 : 0) : ((d1InR ? 1 : 0) + (d2InR ? 1 : 0));
+        const locRejMatch = (d1InR ? 1 : 0) + (d2InR ? 1 : 0);
         rejMatched += locRejMatch;
 
-        // GvHD direction (GvH): Recipient antigens NOT in Donor
+        if (!d1InR && !d2InR && d1 === d2) {
+          rejMismatches.push(`${locus}(${dispD0 || dispD1}×2)`);
+        } else {
+          if (!d1InR) rejMismatches.push(`${locus}(${dispD0 || dispD1})`);
+          if (!d2InR) rejMismatches.push(`${locus}(${dispD1 || dispD0})`);
+        }
+
+        // GvHD direction (GvH): Recipient alleles NOT present in Donor
         const r1InD = dSet.includes(r1);
         const r2InD = dSet.includes(r2);
-        const locGvhdMatch = (r1 === r2) ? (r1InD ? 2 : 0) : ((r1InD ? 1 : 0) + (r2InD ? 1 : 0));
+        const locGvhdMatch = (r1InD ? 1 : 0) + (r2InD ? 1 : 0);
         gvhdMatched += locGvhdMatch;
+
+        if (!r1InD && !r2InD && r1 === r2) {
+          gvhdMismatches.push(`${locus}(${dispR0 || dispR1}×2)`);
+        } else {
+          if (!r1InD) gvhdMismatches.push(`${locus}(${dispR0 || dispR1})`);
+          if (!r2InD) gvhdMismatches.push(`${locus}(${dispR1 || dispR0})`);
+        }
 
         if (abcdLoci.has(locus)) {
           abcdTotal += 2;
@@ -2509,25 +2611,28 @@ window.BMTCalc = (function () {
           abcdBidirectionalMismatch += Math.max(locRejMm, locGvhdMm);
         }
 
-        // Highlight mismatches visually
-        r1Mismatch = !r1InD;
-        r2Mismatch = Boolean(normAllele(arr[1])) && !r2InD;
-        d1Mismatch = !d1InR;
-        d2Mismatch = Boolean(normAllele(arr[3])) && !d2InR;
+        // Visual highlight only on non-dash cells that are absent from the other side
+        r1Mismatch = Boolean(rawR0) && !dSet.includes(rawR0);
+        r2Mismatch = Boolean(rawR1) && !dSet.includes(rawR1);
+        d1Mismatch = Boolean(rawD0) && !rSet.includes(rawD0);
+        d2Mismatch = Boolean(rawD1) && !rSet.includes(rawD1);
       }
 
       locusResults[locus] = { r1Mismatch, r2Mismatch, d1Mismatch, d2Mismatch };
     });
 
-    const rejectionText = hla.autoCalc && totalPossible > 0
-      ? `${rejMatched}/${totalPossible} match`
+    const rejectionText = hla.autoCalc
+      ? (totalPossible > 0 ? `${rejMatched}/${totalPossible} match` : '')
       : (hla.rejectionManual || '');
-    const gvhdText = hla.autoCalc && totalPossible > 0
-      ? `${gvhdMatched}/${totalPossible} match`
+    const gvhdText = hla.autoCalc
+      ? (totalPossible > 0 ? `${gvhdMatched}/${totalPossible} match` : '')
       : (hla.gvhdManual || '');
 
     return {
       loci: locusResults,
+      testedLoci,
+      rejMismatches,
+      gvhdMismatches,
       rejMatched,
       gvhdMatched,
       totalPossible,
@@ -2544,27 +2649,36 @@ window.BMTCalc = (function () {
     if (state.donorRelation === 'related' || state.donorRelation === 'unrelated') {
       return state.donorRelation;
     }
-    const text = `${state.donor.label || ''} ${state.donor.name || ''}`;
-    if (/MMUD|MUD|URD|非親屬|慈濟|unrelated/i.test(text)) return 'unrelated';
-    if (state.mode === 'ptcy' || /父|母|兒|女|兄|弟|姊|妹|子|親屬|MSD|sibling|son|daughter|brother|sister|parent|haplo/i.test(text)) {
+    const dName = String(state.donor.name || '').trim();
+    const dLabel = String(state.donor.label || '').trim();
+    const text = `${dLabel} ${dName}`.trim();
+    // Unrelated donor rule: written as MUD / MMUD / URD / 非親屬 / 慈濟
+    if (/\b(MMUD|MUD|URD|BTCS)\b|非親屬|慈濟|unrelated/i.test(text)) return 'unrelated';
+    // Related donor rule: kinship label OR donor has a personal name (and is not MUD/MMUD)
+    if (/父|母|兒|女|兄|弟|姊|妹|子|親屬|\bMSD\b|sibling|son|daughter|brother|sister|parent|haplo/i.test(text)) {
       return 'related';
     }
-    return 'unrelated';
+    if (dName.length > 0) return 'related';
+    if (state.mode === 'ptcy') return 'related';
+    return '';
   }
 
   function evalLetermovirNHI(state, hlaCalc) {
     if (state.mode === 'auto' || !hlaCalc) return null;
     const relation = inferDonorRelation(state);
-    const relationLabel = relation === 'related' ? '親屬間捐贈' : '非親屬間捐贈';
+    const relationLabel = relation === 'related' ? '親屬間捐贈' : (relation === 'unrelated' ? '非親屬間捐贈' : '未判定捐贈關係');
     const mm = hlaCalc.mismatchABCD || 0;
     const hasAbcd = hlaCalc.abcdTotal > 0;
     const threshold = relation === 'related' ? 2 : 1;
-    const eligible = hasAbcd ? (mm >= threshold) : false;
+    const eligible = (Boolean(relation) && hasAbcd) ? (mm >= threshold) : false;
 
     let reason = '';
     let noteText = '';
-    if (!hasAbcd) {
-      reason = 'HLA-A/B/C/DR 尚未填寫完整，無法判定健保資格';
+    if (!relation) {
+      reason = '尚未填入 Donor 名稱（親屬填姓名、非親屬填 MUD/MMUD），無法判定健保資格';
+      noteText = '(請輸入 Donor 名稱與 HLA-A/B/C/DR 以判讀健保條件)';
+    } else if (!hasAbcd) {
+      reason = `${relationLabel}，但 HLA-A/B/C/DR 尚未填寫完整，無法判定健保資格`;
       noteText = '(請輸入完整 HLA-A/B/C/DR 以判讀健保條件)';
     } else if (eligible) {
       reason = `${relationLabel}，HLA-A/B/C/DR 不相符 ${mm} 個位點（達 ≥${threshold} 位點標準）→ 符合健保給付條件`;
@@ -4664,7 +4778,7 @@ window.BMTDocx = (function () {
 (function () {
   const deepClone = (obj) => JSON.parse(JSON.stringify(obj));
 
-  let state = deepClone(window.BMT_DEMO_CASES.allo);
+  let state = deepClone(window.BMT_EMPTY_STATES.allo);
   let activeView = 'editor'; // 'editor' | 'reference'
   let refFilter = 'all';
   let refSearch = '';
@@ -4790,7 +4904,9 @@ window.BMTDocx = (function () {
       return;
     }
     badge.style.display = 'inline-block';
-    badge.textContent = `ABO: ${calc.blood.mismatch} | RBC: ${calc.blood.rbc} | Plt/FFP: ${calc.blood.plt}`;
+    badge.textContent = calc.blood.mismatch === '未知'
+      ? 'ABO: 待填入血型'
+      : `ABO: ${calc.blood.mismatch} | RBC: ${calc.blood.rbc} | Plt/FFP: ${calc.blood.plt}`;
   }
 
   function renderAlerts(calc) {
@@ -4842,31 +4958,32 @@ window.BMTDocx = (function () {
 
   function renderAnthroStrip(calc) {
     const a = calc.anthro;
+    const hasHW = a.actualBW > 0 && a.height > 0;
     const isAdj = state.dosingBasis !== 'actual';
     $('anthroStrip').innerHTML = `
       <div class="metric-box">
         <div class="label">Actual BW / BSA</div>
-        <div class="val">${a.actualBW || 0} kg <span style="font-size:12px;font-weight:600;color:#64748b;">(${a.actualBSA.toFixed(2)} m²)</span></div>
+        <div class="val">${hasHW ? `${a.actualBW} kg <span style="font-size:12px;font-weight:600;color:#64748b;">(${a.actualBSA.toFixed(2)} m²)</span>` : '—'}</div>
       </div>
       <div class="metric-box">
         <div class="label">Ideal BW (BMI 22)</div>
-        <div class="val">${a.ibwBMI.toFixed(1)} kg</div>
+        <div class="val">${hasHW ? `${a.ibwBMI.toFixed(1)} kg` : '—'}</div>
       </div>
       <div class="metric-box">
         <div class="label">Ideal BW (BMT CTN)</div>
-        <div class="val">${a.ibwCTN.toFixed(1)} kg</div>
+        <div class="val">${hasHW ? `${a.ibwCTN.toFixed(1)} kg` : '—'}</div>
       </div>
       <div class="metric-box adj-metric">
         <div class="label">Adjusted BW ${isAdj ? '★使用中' : ''}</div>
-        <div class="val">${a.adjBW.toFixed(1)} kg</div>
+        <div class="val">${hasHW ? `${a.adjBW.toFixed(1)} kg` : '—'}</div>
       </div>
       <div class="metric-box adj-metric">
         <div class="label">Adjusted BSA ${isAdj ? '★使用中' : ''}</div>
-        <div class="val">${a.adjBSA.toFixed(2)} m²</div>
+        <div class="val">${hasHW ? `${a.adjBSA.toFixed(2)} m²` : '—'}</div>
       </div>
       <div class="metric-box highlight">
         <div class="label">預計 D0 移植日</div>
-        <div class="val" style="font-size:14px;">${escHtml(calc.d0DateStr)}</div>
+        <div class="val" style="font-size:14px;">${state.admissionDate ? escHtml(calc.d0DateStr) : '待填入院日'}</div>
       </div>
     `;
     let formulaEl = $('anthroFormulaNote');
@@ -4884,8 +5001,11 @@ window.BMTDocx = (function () {
     const isAuto = state.mode === 'auto';
     const r = state.recipient;
     const d = state.donor;
-    const btOpts = (val) => ['A+', 'B+', 'AB+', 'O+', 'A-', 'B-', 'AB-', 'O-']
+    const btOpts = (val) => `<option value="" ${!val ? 'selected' : ''}>--</option>` + ['A+', 'B+', 'AB+', 'O+', 'A-', 'B-', 'AB-', 'O-']
       .map(bt => `<option value="${bt}" ${val === bt ? 'selected' : ''}>${bt}</option>`).join('');
+    const genderOpts = (val, showLabel) => `<option value="" ${!val ? 'selected' : ''}>--</option>` +
+      `<option value="M" ${val === 'M' ? 'selected' : ''}>${showLabel ? 'M (男)' : 'M'}</option>` +
+      `<option value="F" ${val === 'F' ? 'selected' : ''}>${showLabel ? 'F (女)' : 'F'}</option>`;
 
     if (isAuto) {
       $('candidateTableContainer').innerHTML = `
@@ -4895,7 +5015,7 @@ window.BMTDocx = (function () {
             <tr><td class="lbl" colspan="2">Chart No.</td><td colspan="2"><input data-path="recipient.chartNo" value="${escHtml(r.chartNo)}"></td></tr>
             <tr><td class="lbl" colspan="2">Age / Gender</td>
               <td><input type="number" data-path="recipient.age" value="${escHtml(r.age)}" placeholder="Age"></td>
-              <td><select data-path="recipient.gender"><option value="M" ${r.gender === 'M' ? 'selected' : ''}>M (男)</option><option value="F" ${r.gender === 'F' ? 'selected' : ''}>F (女)</option></select></td>
+              <td><select data-path="recipient.gender">${genderOpts(r.gender, true)}</select></td>
             </tr>
             <tr><td class="lbl" colspan="2">Height(cm) | Weight(kg)</td>
               <td><input type="number" step="0.1" data-path="recipient.height" value="${escHtml(r.height)}" placeholder="身高 cm"></td>
@@ -4954,8 +5074,8 @@ window.BMTDocx = (function () {
               <td colspan="2"><input type="number" data-path="donor.age" value="${escHtml(d.age)}"></td>
             </tr>
             <tr><td class="lbl" colspan="2">Gender</td>
-              <td colspan="2"><select data-path="recipient.gender"><option value="M" ${r.gender === 'M' ? 'selected' : ''}>M</option><option value="F" ${r.gender === 'F' ? 'selected' : ''}>F</option></select></td>
-              <td colspan="2"><select data-path="donor.gender"><option value="M" ${d.gender === 'M' ? 'selected' : ''}>M</option><option value="F" ${d.gender === 'F' ? 'selected' : ''}>F</option></select></td>
+              <td colspan="2"><select data-path="recipient.gender">${genderOpts(r.gender, false)}</select></td>
+              <td colspan="2"><select data-path="donor.gender">${genderOpts(d.gender, false)}</select></td>
             </tr>
             <tr><td class="lbl" colspan="2">Height(cm) | Weight(kg)</td>
               <td><input type="number" step="0.1" data-path="recipient.height" value="${escHtml(r.height)}" placeholder="cm"></td>
@@ -4969,12 +5089,12 @@ window.BMTDocx = (function () {
             </tr>
             ${hlaRows}
             <tr><td class="lbl" colspan="2">Rejection direction</td>
-              <td colspan="2" style="color:#64748b;font-size:11.5px;text-align:center;">(Host-vs-Graft)</td>
-              <td colspan="2"><input id="hlaRejInput" data-path="hla.rejectionManual" value="${escHtml(state.hla.rejectionManual)}" style="text-align:center;font-weight:700;"></td>
+              <td colspan="2" id="hlaRejDetail" style="color:#64748b;font-size:11px;text-align:center;line-height:1.35;">(Host-vs-Graft)</td>
+              <td colspan="2"><input id="hlaRejInput" data-path="hla.rejectionManual" value="${escHtml(state.hla.rejectionManual)}" placeholder="填入 HLA 自動計算" style="text-align:center;font-weight:700;"></td>
             </tr>
             <tr><td class="lbl" colspan="2">GvHD direction</td>
-              <td colspan="2" style="color:#64748b;font-size:11.5px;text-align:center;">(Graft-vs-Host)</td>
-              <td colspan="2"><input id="hlaGvhdInput" data-path="hla.gvhdManual" value="${escHtml(state.hla.gvhdManual)}" style="text-align:center;font-weight:700;"></td>
+              <td colspan="2" id="hlaGvhdDetail" style="color:#64748b;font-size:11px;text-align:center;line-height:1.35;">(Graft-vs-Host)</td>
+              <td colspan="2"><input id="hlaGvhdInput" data-path="hla.gvhdManual" value="${escHtml(state.hla.gvhdManual)}" placeholder="填入 HLA 自動計算" style="text-align:center;font-weight:700;"></td>
             </tr>
             <tr><td class="lbl" colspan="2">Test date</td>
               <td colspan="2"><input data-path="recipient.testDate" value="${escHtml(r.testDate)}"></td>
@@ -5031,6 +5151,11 @@ window.BMTDocx = (function () {
       const autoChk = $('hlaAutoCalcChk');
       if (autoChk) {
         autoChk.addEventListener('change', () => {
+          if (!autoChk.checked) {
+            const cur = window.BMTCalc.calcHLA(state.hla);
+            if (!state.hla.rejectionManual && cur.rejectionText) state.hla.rejectionManual = cur.rejectionText;
+            if (!state.hla.gvhdManual && cur.gvhdText) state.hla.gvhdManual = cur.gvhdText;
+          }
           state.hla.autoCalc = autoChk.checked;
           updateDynamicViews();
         });
@@ -5058,9 +5183,10 @@ window.BMTDocx = (function () {
 
   function updateHlaHighlights(calc) {
     if (!calc.hlaCalc) return;
+    const h = calc.hlaCalc;
     const container = $('candidateTableContainer');
     ['A', 'B', 'C', 'DR', 'DQ', 'DP'].forEach(loc => {
-      const mm = calc.hlaCalc.loci[loc];
+      const mm = h.loci[loc];
       const flags = [mm.r1Mismatch, mm.r2Mismatch, mm.d1Mismatch, mm.d2Mismatch];
       flags.forEach((isMm, idx) => {
         const inp = container.querySelector(`[data-hla="${loc}.${idx}"]`);
@@ -5072,10 +5198,12 @@ window.BMTDocx = (function () {
     });
     const rej = $('hlaRejInput');
     const gvhd = $('hlaGvhdInput');
+    const rejDetail = $('hlaRejDetail');
+    const gvhdDetail = $('hlaGvhdDetail');
     if (rej) {
       rej.style.color = '#0007ff';
       if (state.hla.autoCalc) {
-        rej.value = calc.hlaCalc.rejectionText;
+        rej.value = h.rejectionText;
         rej.readOnly = true;
       } else {
         rej.readOnly = false;
@@ -5084,10 +5212,43 @@ window.BMTDocx = (function () {
     if (gvhd) {
       gvhd.style.color = '#ff0000';
       if (state.hla.autoCalc) {
-        gvhd.value = calc.hlaCalc.gvhdText;
+        gvhd.value = h.gvhdText;
         gvhd.readOnly = true;
       } else {
         gvhd.readOnly = false;
+      }
+    }
+    if (rejDetail) {
+      if (h.totalPossible > 0) {
+        const lociLbl = (h.testedLoci || []).join('/');
+        rejDetail.textContent = h.rejMismatches && h.rejMismatches.length
+          ? `HvG (${lociLbl}) · R缺: ${h.rejMismatches.join(', ')}`
+          : `HvG (${lociLbl}) · 全相符`;
+      } else {
+        rejDetail.textContent = '(Host-vs-Graft · 填入 HLA 自動計算)';
+      }
+    }
+    if (gvhdDetail) {
+      if (h.totalPossible > 0) {
+        const lociLbl = (h.testedLoci || []).join('/');
+        gvhdDetail.textContent = h.gvhdMismatches && h.gvhdMismatches.length
+          ? `GvH (${lociLbl}) · D缺: ${h.gvhdMismatches.join(', ')}`
+          : `GvH (${lociLbl}) · 全相符`;
+      } else {
+        gvhdDetail.textContent = '(Graft-vs-Host · 填入 HLA 自動計算)';
+      }
+    }
+    const relHint = $('donorRelationAutoHint');
+    if (relHint && calc.letermovirNHI) {
+      const rel = calc.letermovirNHI.relation;
+      if (state.donorRelation && state.donorRelation !== 'auto') {
+        relHint.textContent = `手動指定：${calc.letermovirNHI.relationLabel}`;
+      } else if (rel === 'unrelated') {
+        relHint.textContent = '自動判讀：非親屬間捐贈 (MUD/MMUD)';
+      } else if (rel === 'related') {
+        relHint.textContent = '自動判讀：親屬間捐贈 (Donor 有姓名)';
+      } else {
+        relHint.textContent = '自動判讀：待填入 Donor 名稱（親屬填姓名、非親屬填 MUD/MMUD）';
       }
     }
   }
@@ -5138,8 +5299,8 @@ window.BMTDocx = (function () {
     if (D.ratg) D.ratg.enabled = wantRatg;
     if (D.tacrolimus) D.tacrolimus.enabled = wantTac;
     if (D.csa) D.csa.enabled = wantCsa && !wantTac;
-    if (D.mmf) D.mmf.enabled = wantMmf;
-    if (D.mtx) D.mtx.enabled = wantMtx;
+    if (D.mmf) D.mmf.enabled = wantMmf && !wantMtx;
+    if (D.mtx) D.mtx.enabled = wantMtx && !wantMmf;
     state.gvhdProphylaxis = val;
 
     if (modeSwitched) {
@@ -5203,10 +5364,11 @@ window.BMTDocx = (function () {
           <div class="field">
             <label>捐贈者關係（Letermovir 健保判讀）</label>
             <select data-field="donorRelation">
-              <option value="auto" ${(!state.donorRelation || state.donorRelation === 'auto') ? 'selected' : ''}>自動偵測（依 Donor 欄位）</option>
+              <option value="auto" ${(!state.donorRelation || state.donorRelation === 'auto') ? 'selected' : ''}>自動偵測（有姓名=親屬、MUD/MMUD=非親屬）</option>
               <option value="related" ${state.donorRelation === 'related' ? 'selected' : ''}>親屬間捐贈（A/B/C/DR 不相符 ≥2）</option>
               <option value="unrelated" ${state.donorRelation === 'unrelated' ? 'selected' : ''}>非親屬間捐贈（A/B/C/DR 不相符 ≥1）</option>
             </select>
+            <small id="donorRelationAutoHint" style="font-size:11px;color:#475569;"></small>
           </div>
           ${state.mode === 'allo' ? `
           <div class="field">
@@ -5379,13 +5541,13 @@ window.BMTDocx = (function () {
         ${D.tacrolimus.route === 'PO' ? `<select data-drug="tacrolimus.freq"><option value="Q12H" ${D.tacrolimus.freq==='Q12H'?'selected':''}>Q12H</option><option value="BID" ${D.tacrolimus.freq==='BID'?'selected':''}>BID</option></select>` : dilInput('tacrolimus.diluent', D.tacrolimus.diluent, 'N/S 250ml')}
         起日 <select data-drug="tacrolimus.startD" data-num="1">${dayOptions(-2,5,D.tacrolimus.startD)}</select>
       `);
-      mkDrug('mmf', 'Mycophenolate (Myfortic 180mg, RIC用)', 'RIC 2# BIDAC；TID 公式 10.8 mg/kg TID（最高不超過 4# TID）', 'pill-mmf', `
+      mkDrug('mmf', 'Mycophenolate (Myfortic 180mg，與 MTX 互斥)', 'RIC 2# BIDAC；TID 公式 10.8 mg/kg TID（最高不超過 4# TID）', 'pill-mmf', `
         <input type="number" step="1" data-drug="mmf.doseTab" value="${D.mmf.doseTab}"> #
         <select data-drug="mmf.freq"><option value="BIDAC" ${D.mmf.freq==='BIDAC'?'selected':''}>BIDAC</option><option value="TIDAC" ${D.mmf.freq==='TIDAC'?'selected':''}>TIDAC</option></select>
         起日 <select data-drug="mmf.startD" data-num="1">${dayOptions(0,6,D.mmf.startD)}</select>
         <div class="mesna-subrow">計算公式：原 Cellcept 15 mg/kg TID 換算為 Myfortic 180 mg/cap = <strong>10.8 mg/kg TID</strong>（上限 2160 mg/day，<strong>最高不超過 4# TID</strong>）</div>
       `);
-      mkDrug('mtx', 'MTX (15→10 mg/m²) + Leucovorin Rescue (MAC用)', 'D+1 15 → D+3/6/11 10 mg/m²', 'pill-mtx', `
+      mkDrug('mtx', 'MTX (15→10 mg/m²) + Leucovorin Rescue（與 MMF 互斥）', 'D+1 15 → D+3/6/11 10 mg/m²', 'pill-mtx', `
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
           <input type="checkbox" data-drug-bool="mtx.shift1Day" ${D.mtx.shift1Day?'checked':''}>
           幹細胞輸至 D+1（MTX 順延為 D+2, D+4, D+7, D+12）
@@ -5455,11 +5617,11 @@ window.BMTDocx = (function () {
         起日 <select data-drug="csa.startD" data-num="1">${dayOptions(5,7,D.csa.startD)}</select> PM
         ${dilInput('csa.diluent', D.csa.diluent, 'N/S 250ml')}
       `);
-      mkDrug('mmf', 'Mycophenolate (Myfortic)', '10.8 mg/kg TIDAC (180mg/cap，最高不超過 4# TID)', 'pill-mmf', `
+      mkDrug('mmf', 'Mycophenolate (Myfortic，與 MTX 互斥)', '10.8 mg/kg TIDAC (180mg/cap，最高不超過 4# TID)', 'pill-mmf', `
         起日 <select data-drug="mmf.startD" data-num="1">${dayOptions(5,7,D.mmf.startD)}</select>
         <div class="mesna-subrow">計算公式：Adjusted BW × 10.8 mg/kg ÷ 180 mg（原 Cellcept 15 mg/kg TID 換算），上限 2160 mg/day（<strong>最高不超過 4# TID</strong>）</div>
       `);
-      mkDrug('mtx', 'MTX + Leucovorin', '10 mg/m² on D+6, D+11', 'pill-mtx', `
+      mkDrug('mtx', 'MTX + Leucovorin（與 MMF 互斥）', '10 mg/m² on D+6, D+11', 'pill-mtx', `
         <span style="color:#64748b;">固定 D+6, D+11 給予（若輸 D0+D1 則 D+7, D+12）</span>
       `);
     } else if (state.mode === 'auto') {
@@ -5534,29 +5696,31 @@ window.BMTDocx = (function () {
         const key = chk.dataset.drugEnable;
         state.drugs[key].enabled = chk.checked;
 
-        // Enforce CsA <-> Tacrolimus mutual exclusion
-        if (chk.checked && key === 'tacrolimus' && state.drugs.csa && state.drugs.csa.enabled) {
-          state.drugs.csa.enabled = false;
-          const otherChk = container.querySelector('[data-drug-enable="csa"]');
-          const otherBox = container.querySelector('[data-drug-box="csa"]');
-          if (otherChk) otherChk.checked = false;
-          if (otherBox) {
-            otherBox.classList.remove('enabled');
-            otherBox.querySelector('.drug-controls').style.display = 'none';
-            otherBox.querySelector('.calc-pill').style.display = 'none';
+        // Helper to disable a mutually exclusive companion drug
+        const uncheckCompanion = (otherKey, toastMsg) => {
+          if (state.drugs[otherKey] && state.drugs[otherKey].enabled) {
+            state.drugs[otherKey].enabled = false;
+            const otherChk = container.querySelector(`[data-drug-enable="${otherKey}"]`);
+            const otherBox = container.querySelector(`[data-drug-box="${otherKey}"]`);
+            if (otherChk) otherChk.checked = false;
+            if (otherBox) {
+              otherBox.classList.remove('enabled');
+              otherBox.querySelector('.drug-controls').style.display = 'none';
+              otherBox.querySelector('.calc-pill').style.display = 'none';
+            }
+            showToast(toastMsg);
           }
-          showToast('Tacrolimus 與 Cyclosporine (CsA) 不可併用，已自動取消勾選 CsA');
-        } else if (chk.checked && key === 'csa' && state.drugs.tacrolimus && state.drugs.tacrolimus.enabled) {
-          state.drugs.tacrolimus.enabled = false;
-          const otherChk = container.querySelector('[data-drug-enable="tacrolimus"]');
-          const otherBox = container.querySelector('[data-drug-box="tacrolimus"]');
-          if (otherChk) otherChk.checked = false;
-          if (otherBox) {
-            otherBox.classList.remove('enabled');
-            otherBox.querySelector('.drug-controls').style.display = 'none';
-            otherBox.querySelector('.calc-pill').style.display = 'none';
-          }
-          showToast('Cyclosporine (CsA) 與 Tacrolimus 不可併用，已自動取消勾選 Tacrolimus');
+        };
+
+        // Enforce CsA <-> Tacrolimus and MMF <-> MTX mutual exclusion
+        if (chk.checked && key === 'tacrolimus') {
+          uncheckCompanion('csa', 'Tacrolimus 與 Cyclosporine (CsA) 不可併用，已自動取消勾選 CsA');
+        } else if (chk.checked && key === 'csa') {
+          uncheckCompanion('tacrolimus', 'Cyclosporine (CsA) 與 Tacrolimus 不可併用，已自動取消勾選 Tacrolimus');
+        } else if (chk.checked && key === 'mtx') {
+          uncheckCompanion('mmf', 'MTX 與 MMF (Myfortic) 不可併用，已自動取消勾選 MMF');
+        } else if (chk.checked && key === 'mmf') {
+          uncheckCompanion('mtx', 'MMF (Myfortic) 與 MTX 不可併用，已自動取消勾選 MTX');
         }
 
         const box = container.querySelector(`[data-drug-box="${key}"]`);
@@ -6194,19 +6358,22 @@ window.BMTDocx = (function () {
       ward: state.ward,
       admissionDate: state.admissionDate,
       donorRelation: state.donorRelation,
+      cd34Dose: state.cd34Dose,
       vs: state.vs,
       primaryCare: state.primaryCare,
       bmtCr: state.bmtCr,
       bedCr: state.bedCr,
       director: state.director
     };
-    state = deepClone(window.BMT_DEMO_CASES[targetMode]);
+    const savedOtherOrders = (state.meds && state.meds.otherOrders) || '';
+    state = deepClone(window.BMT_EMPTY_STATES[targetMode]);
     state.recipient = savedRecipient;
     if (targetMode !== 'auto') {
       state.donor = savedDonor;
       state.hla = savedHla;
     }
     Object.assign(state, savedMeta);
+    if (state.meds) state.meds.otherOrders = savedOtherOrders;
   }
 
   // --- Global Event Listeners ---
@@ -6253,12 +6420,22 @@ window.BMTDocx = (function () {
   });
 
   $('btnClearForm').addEventListener('click', () => {
-    Object.keys(state.recipient).forEach(k => { if (k !== 'gender' && k !== 'bloodType') state.recipient[k] = ''; });
-    Object.keys(state.donor).forEach(k => { if (k !== 'gender' && k !== 'bloodType' && k !== 'label') state.donor[k] = ''; });
+    Object.keys(state.recipient).forEach(k => { state.recipient[k] = ''; });
+    Object.keys(state.donor).forEach(k => { state.donor[k] = k === 'label' ? 'Donor' : ''; });
     ['A', 'B', 'C', 'DR', 'DQ', 'DP'].forEach(loc => { state.hla[loc] = ['', '', '', '']; });
+    state.hla.autoCalc = true;
+    state.hla.rejectionManual = '';
+    state.hla.gvhdManual = '';
     state.diagnosis = '';
     state.comorbidity = '';
+    state.status = '';
+    state.allergy = '';
+    state.admissionDate = '';
     state.cd34Dose = '';
+    state.vs = '';
+    state.donorRelation = 'auto';
+    state.meds.feburicNote = '';
+    state.meds.letermovirNote = '';
     state.meds.otherOrders = '';
     state.customConditioningNotes = '';
     renderAll();
@@ -6399,7 +6576,7 @@ window.BMTDocx = (function () {
     }
   });
 
-  $('btnPasteImport').addEventListener('click', openPasteModal);
+  if ($('btnPasteImport')) $('btnPasteImport').addEventListener('click', openPasteModal);
   $('btnPasteImport2').addEventListener('click', openPasteModal);
   $('btnCloseModal').addEventListener('click', closePasteModal);
   $('btnCancelModal').addEventListener('click', closePasteModal);
@@ -6412,23 +6589,19 @@ window.BMTDocx = (function () {
     const parsed = window.BMTCalc.parseCandidateTable(raw, state.mode, capturedPasteHtml);
 
     // Clear stale Recipient / Donor / HLA fields before filling new patient
-    Object.keys(state.recipient).forEach(k => {
-      if (k !== 'gender' && k !== 'bloodType') state.recipient[k] = '';
-    });
+    Object.keys(state.recipient).forEach(k => { state.recipient[k] = ''; });
     Object.assign(state.recipient, parsed.recipient);
 
     if (state.mode !== 'auto') {
-      Object.keys(state.donor).forEach(k => {
-        if (k !== 'gender' && k !== 'bloodType' && k !== 'label') state.donor[k] = '';
-      });
+      Object.keys(state.donor).forEach(k => { state.donor[k] = k === 'label' ? 'Donor' : ''; });
       state.donor.label = parsed.donor.label || 'Donor';
       Object.assign(state.donor, parsed.donor);
       state.donorRelation = 'auto';
       ['A', 'B', 'C', 'DR', 'DQ', 'DP'].forEach(loc => {
         state.hla[loc] = parsed.hla[loc] ? parsed.hla[loc] : ['', '', '', ''];
       });
-      if (parsed.hla.rejectionManual) state.hla.rejectionManual = parsed.hla.rejectionManual;
-      if (parsed.hla.gvhdManual) state.hla.gvhdManual = parsed.hla.gvhdManual;
+      state.hla.rejectionManual = parsed.hla.rejectionManual || '';
+      state.hla.gvhdManual = parsed.hla.gvhdManual || '';
     }
 
     closePasteModal();
