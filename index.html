@@ -410,6 +410,10 @@ body {
   align-items: start;
 }
 
+.form-grid-sig .field > label {
+  min-height: 0;
+}
+
 .form-grid-2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3565,12 +3569,17 @@ window.BMTCalc = (function () {
       });
     }
 
-    // Build schedule column days (Basic IVF defaults to 1000 ml; 1500 ml on days with Cyclosporine)
+    // Build schedule column days (Basic IVF defaults to 1000 ml; 1500 ml on Cyclophosphamide days and the following day)
+    const isCyOrNextDay = (d) => {
+      const checkRange = (drug) => drug && drug.enabled && d >= Number(drug.startD) && d <= Number(drug.endD) + 1;
+      if (mode === 'allo') return checkRange(D.cyclophosphamide);
+      if (mode === 'ptcy') return checkRange(D.preCy) || checkRange(D.ptcy);
+      return false;
+    };
     const scheduleDays = [];
     for (let d = minCol; d <= maxCol; d++) {
       const dt = dayDate(d);
-      const hasCsaDay = mode !== 'auto' && D.csa && D.csa.enabled && d >= Number(D.csa.startD);
-      const defaultIvf = hasCsaDay ? 1500 : 1000;
+      const defaultIvf = isCyOrNextDay(d) ? 1500 : 1000;
       const ivf = state.ivfOverrides && state.ivfOverrides[d] !== undefined && state.ivfOverrides[d] !== ''
         ? state.ivfOverrides[d]
         : defaultIvf;
@@ -3651,28 +3660,41 @@ window.BMTCalc = (function () {
     // Anti-emetics
     const antiemeticOrders = [];
     const ae = state.antiemetics;
+    const hasPtcy = mode === 'ptcy' && D.ptcy && D.ptcy.enabled;
+    const ptcyStartD = hasPtcy ? (Number(D.ptcy.startD) || 3) : 3;
+    const day4D = chemoStart + 3;
+    const hasDay4 = chemoEnd >= day4D;
+
     if (ae.emendMode === 'IV') {
-      if (mode === 'ptcy') {
-        const midD = chemoStart + 3;
+      // IV 150mg Q3D: chemo day 1 QD, chemo day 4 QD (if chemo >= 4 days), plus PTCy day 1 QD
+      if (hasPtcy) {
+        if (hasDay4) {
+          antiemeticOrders.push(
+            `1. Aprepitant (Emend) > 150 mg IV QD (Q3D) on ${fmtDayLabel(chemoStart)} (${fmtMD(dayDate(chemoStart))}), ${fmtDayLabel(day4D)} (${fmtMD(dayDate(day4D))}), and ${fmtDayLabel(ptcyStartD)} (${fmtMD(dayDate(ptcyStartD))}) (健保)`
+          );
+        } else {
+          antiemeticOrders.push(
+            `1. Aprepitant (Emend) > 150 mg IV QD (Q3D) on ${fmtDayLabel(chemoStart)} (${fmtMD(dayDate(chemoStart))}) and ${fmtDayLabel(ptcyStartD)} (${fmtMD(dayDate(ptcyStartD))}) (健保)`
+          );
+        }
+      } else if (hasDay4) {
         antiemeticOrders.push(
-          `1. Aprepitant (Emend) > 150 mg IV QD on ${fmtDayLabel(chemoStart)} (${fmtMD(dayDate(chemoStart))}), ${fmtDayLabel(midD)} (${fmtMD(dayDate(midD))}), and D+3 (${fmtMD(dayDate(3))}) (健保)`
+          `1. Aprepitant (Emend) > 150 mg IV QD (Q3D) on ${fmtDayLabel(chemoStart)} (${fmtMD(dayDate(chemoStart))}) (健保), then 150 mg IV QD on ${fmtDayLabel(day4D)} (${fmtMD(dayDate(day4D))}) (自費)`
         );
       } else {
         antiemeticOrders.push(
-          `1. Aprepitant (Emend) > 150 mg IV QD on ${fmtDayLabel(chemoStart)} (${fmtMD(dayDate(chemoStart))})${ae.cashEmend ? `, then 150 mg IV QD on ${fmtDayLabel(chemoStart + 3)} (${fmtMD(dayDate(chemoStart + 3))})(自費)` : ' (健保)'}`
+          `1. Aprepitant (Emend) > 150 mg IV QD (Q3D) on ${fmtDayLabel(chemoStart)} (${fmtMD(dayDate(chemoStart))}) (健保)`
         );
       }
     } else {
-      let em = `1. Aprepitant (Emend) > 125 mg PO QD on ${fmtDayLabel(chemoStart)} (${fmtMD(dayDate(chemoStart))}), then 80 mg PO QD on ${fmtDayLabel(chemoStart + 1)} to ${fmtDayLabel(chemoStart + 2)} (${fmtMD(dayDate(chemoStart + 1))} - ${fmtMD(dayDate(chemoStart + 2))})(健保)`;
-      if (mode === 'ptcy') {
-        if (ae.cashEmend && chemoEnd >= chemoStart + 3) {
-          em += `, > 125 mg PO QD on ${fmtDayLabel(chemoStart + 3)} ~ D-1 (${fmtMD(dayDate(chemoStart + 3))}~${fmtMD(dayDate(-1))})(自費)`;
-        }
-        em += `, then 125 mg PO QD on D+3 (${fmtMD(dayDate(3))}), then 80 mg PO QD on D+4 ~ D+5 (${fmtMD(dayDate(4))}~${fmtMD(dayDate(5))})(健保)`;
-      } else if (ae.cashEmend && chemoEnd >= chemoStart + 3) {
-        const extStart = chemoStart + 3;
+      // PO: first 3 days 125-80-80 (健保), followed by 125-125-125 (自費), plus 125-80-80 (健保) on PTCy
+      let em = `1. Aprepitant (Emend) > 125 mg PO QD on ${fmtDayLabel(chemoStart)} (${fmtMD(dayDate(chemoStart))}), then 80 mg PO QD on ${fmtDayLabel(chemoStart + 1)} ~ ${fmtDayLabel(chemoStart + 2)} (${fmtMD(dayDate(chemoStart + 1))} ~ ${fmtMD(dayDate(chemoStart + 2))}) (健保)`;
+      if (hasDay4) {
         const extEnd = Math.min(chemoEnd, chemoStart + 5);
-        em += ` > 125 mg PO QD on ${fmtDayRange(extStart, extEnd, d0Date)} (自費)`;
+        em += `, then 125 mg PO QD on ${fmtDayRange(day4D, extEnd, d0Date)} (自費)`;
+      }
+      if (hasPtcy) {
+        em += `, then 125 mg PO QD on ${fmtDayLabel(ptcyStartD)} (${fmtMD(dayDate(ptcyStartD))}), then 80 mg PO QD on ${fmtDayLabel(ptcyStartD + 1)} ~ ${fmtDayLabel(ptcyStartD + 2)} (${fmtMD(dayDate(ptcyStartD + 1))} ~ ${fmtMD(dayDate(ptcyStartD + 2))}) (健保)`;
       }
       antiemeticOrders.push(em);
     }
@@ -5501,7 +5523,7 @@ window.BMTDocx = (function () {
         </div>
         ${!isAuto ? `
           <div class="field">
-            <label><span class="lbl-main">Acute GVHD Prophylaxis</span><span class="lbl-sub">(雙向連動處方)</span></label>
+            <label><span class="lbl-main">Acute GVHD Prophylaxis</span></label>
             <select id="gvhdProphylaxisSelect">
               ${gvhdOpts.map(opt => `<option value="${escHtml(opt)}" ${curGvhd === opt ? 'selected' : ''}>${escHtml(opt)}</option>`).join('')}
             </select>
@@ -5536,8 +5558,8 @@ window.BMTDocx = (function () {
       </div>
 
       <div class="form-grid-sig">
-        <div class="field"><label><span class="lbl-main">主治醫師</span><span class="lbl-sub">(VS)</span></label><input data-field="vs" value="${escHtml(state.vs)}"></div>
-        <div class="field"><label><span class="lbl-main">Primary Care</span><span class="lbl-sub">(住院醫師)</span></label><input data-field="primaryCare" value="${escHtml(state.primaryCare)}"></div>
+        <div class="field"><label><span class="lbl-main">主治醫師</span></label><input data-field="vs" value="${escHtml(state.vs)}"></div>
+        <div class="field"><label><span class="lbl-main">Primary Care</span></label><input data-field="primaryCare" value="${escHtml(state.primaryCare)}"></div>
         <div class="field"><label><span class="lbl-main">BMT CR</span></label><input data-field="bmtCr" value="${escHtml(state.bmtCr)}"></div>
         <div class="field"><label><span class="lbl-main">開床 CR</span></label><input data-field="bedCr" value="${escHtml(state.bedCr)}"></div>
         <div class="field"><label><span class="lbl-main">BMT Unit Director</span></label><input data-field="director" value="${escHtml(state.director)}"></div>
@@ -6045,7 +6067,7 @@ window.BMTDocx = (function () {
         ${state.mode === 'ptcy' ? `<label class="check-pill"><input type="checkbox" data-med="bmOnAdmission" ${M.bmOnAdmission?'checked':''}> 轉入移植室日做 BM</label>` : ''}
       </div>
 
-      <div class="form-grid" style="margin-bottom:12px; padding:12px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;">
+      <div class="form-grid-2" style="margin-bottom:12px; padding:12px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;">
         <div class="field">
           <label><span class="lbl-main">化療起日</span><span class="lbl-sub">(計算止吐／預防藥)</span></label>
           <select data-field-m="chemoStartD" data-num="1">${dayOptions(-9, -2, state.chemoStartD)}</select>
@@ -6057,8 +6079,8 @@ window.BMTDocx = (function () {
         <div class="field">
           <label><span class="lbl-main">Aprepitant 劑型</span><span class="lbl-sub">(Emend)</span></label>
           <select data-ae="emendMode">
-            <option value="PO" ${AE.emendMode==='PO'?'selected':''}>PO（125mg → 80mg）</option>
-            <option value="IV" ${AE.emendMode==='IV'?'selected':''}>IV（150mg QOD / QD）</option>
+            <option value="PO" ${AE.emendMode==='PO'?'selected':''}>PO（前3天 125-80-80 健保 → 續 125 自費）</option>
+            <option value="IV" ${AE.emendMode==='IV'?'selected':''}>IV（150mg Q3D：第1天、第4天、PTCy 第1天）</option>
           </select>
         </div>
         <div class="field">
@@ -6067,13 +6089,6 @@ window.BMTDocx = (function () {
             <option value="Kytril" ${AE.serotoninAgent==='Kytril'?'selected':''}>Granisetron (Kytril) QD</option>
             <option value="Aloxi" ${AE.serotoninAgent==='Aloxi'?'selected':''}>Palonosetron (Aloxi) QOD</option>
           </select>
-        </div>
-        <div class="field">
-          <label><span class="lbl-main">延長自費 Emend</span><span class="lbl-sub">(D+3 起銜接)</span></label>
-          <label class="field-check-box">
-            <input type="checkbox" data-ae-bool="cashEmend" ${AE.cashEmend?'checked':''}>
-            <span>啟用延長自費 Emend</span>
-          </label>
         </div>
       </div>
 
@@ -6111,16 +6126,6 @@ window.BMTDocx = (function () {
               <option value="1# QD since D+1" ${M.letermovirDose==='1# QD since D+1'?'selected':''}>1# (240mg) QD since D+1（併用CsA）</option>
               <option value="2# QD since D+5" ${M.letermovirDose==='2# QD since D+5'?'selected':''}>2# (480mg) QD since D+5（Tacrolimus/無CsA）</option>
             </select>
-          </div>
-          <div class="field">
-            <label>
-              <span class="lbl-main">
-                <span>Letermovir 備註</span>
-                <span class="lbl-inline-chk"><input type="checkbox" data-med="letermovirAutoNote" ${M.letermovirAutoNote !== false ? 'checked' : ''}> 自動判讀</span>
-              </span>
-              <span class="lbl-sub">(健保條件自動判讀)</span>
-            </label>
-            <input data-med-val="letermovirNote" value="${escHtml(M.letermovirNote || '')}" placeholder="額外備註">
           </div>
         ` : ''}
       </div>
