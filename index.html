@@ -362,9 +362,10 @@ body {
 }
 
 .cand-table textarea {
-  resize: vertical;
-  min-height: 66px;
-  line-height: 1.38;
+  resize: none;
+  min-height: 0;
+  line-height: 1.4;
+  overflow-y: auto;
 }
 
 .hla-auto-wrap {
@@ -449,6 +450,7 @@ body {
 .field.full > label {
   min-height: 0;
   flex-direction: row;
+  justify-content: flex-start;
   align-items: baseline;
   gap: 6px;
 }
@@ -758,7 +760,7 @@ body {
   border: 1px solid var(--border);
   border-top: none;
   border-radius: 0 0 var(--radius) var(--radius);
-  font-family: Calibri, "Microsoft JhengHei", sans-serif;
+  font-family: Calibri, "微軟正黑體", "Microsoft JhengHei", sans-serif;
   font-size: 12pt;
   line-height: 18pt;
   color: #111827;
@@ -841,6 +843,7 @@ body {
 
 .a4-paper .order-line.bold { font-weight: 700; }
 .a4-paper .order-line.indent { padding-left: 16px; }
+.a4-paper .order-line.indent-sub { padding-left: 34px; }
 .a4-paper .order-line.red { color: #ff0000; font-weight: 700; }
 .a4-paper .order-line.blue { color: #0007ff; font-weight: 700; }
 .a4-paper .order-line.royal { color: #0007ff; font-weight: 700; }
@@ -2177,7 +2180,7 @@ window.BMT_REFERENCE_DATA = {
     { name: 'Mesna', category: 'Adjuvant', stdDose: 'Endoxan 單日劑量的一半 ×3（Allo 30 mg/kg；PTCy 20–25 mg/kg）', basis: 'Endoxan ÷ 2', round: 'MROUND 100 mg', diluent: '1h前 N/S 100cc；8h/14h後 N/S 500cc (with titration)', note: '原則為 Endoxan 劑量的一半，以 100 mg 為單位取最接近劑量；亦可手動調整' },
     { name: 'Thiotepa', category: 'Conditioning', stdDose: 'TBF: 5 mg/kg QD ×2d；TT-BCNU: 5 mg/kg BID ×2d', basis: 'Adj BW', round: 'MROUND 10 mg (100mg/vial)', diluent: 'N/S 500 ml IF 3 hrs', note: '自費／專案申請；穿過 BBB 適用 CNS lymphoma 或 TBF' },
     { name: 'TBI', category: 'Conditioning', stdDose: '台大 MAC 12Gy：150 cGy (1.5 Gy) BID × 4天；RIC-PTCy：200 cGy QD D-1 (SAA 400 cGy)', basis: '固定劑量', round: '—', diluent: '—', note: '需給止吐與 Solu-Medrol 40mg IV；BT <38.5°C、Hb ≥11.0 g/dL' },
-    { name: 'rATG (Thymoglobuline)', category: 'GVHD', stdDose: 'MUD 2.5 mg/kg ×2d (總5)；Haplo/MMUD 3 mg/kg ×2d (總6)；PTCy 2 mg/kg ×2d', basis: 'Adj BW', round: 'MROUND 10 mg (25mg/vial)', diluent: 'N/S 500 ml IF 12 hrs', note: 'Pre-med: Solu-Medrol 40mg Q12H (PTCy 80mg), Vena 30mg, Scanol 1#' },
+    { name: 'rATG (Thymoglobuline)', category: 'GVHD', stdDose: 'MUD 2.5 mg/kg ×2d (總5)；Haplo/MMUD 3 mg/kg ×2d (總6)；PTCy 2 mg/kg ×2d', basis: 'Adj BW', round: '總量 MROUND 25 mg (25mg/vial，首日較多如 425→225/200)', diluent: 'N/S 500 ml IF 12 hrs', note: 'Pre-med: Solu-Medrol 40mg Q12H (PTCy 80mg), Vena 30mg, Scanol 1#' },
     { name: 'Cyclosporine (CsA)', category: 'GVHD', stdDose: '1.5 mg/kg Q12H (3 mg/kg/day)；併用 Triazole 減半為 0.75 mg/kg', basis: 'Adj BW', round: 'MROUND 25 mg (50mg/amp)', diluent: 'N/S 250 ml IF 3 hrs Q12H', note: 'Allo D-1 起；PTCy D+5 PM 起；追蹤 C0 level' },
     { name: 'Tacrolimus (Prograf)', category: 'GVHD', stdDose: 'PO 0.06 mg/kg Q12H (併用 Triazole 0.03)；IV 0.03 mg/kg/day cIF', basis: 'Adj BW', round: 'PO MROUND 0.5 mg', diluent: 'IV: N/S 250 ml cIF（勿用 PVC）', note: 'PTCy D+5 PM 起；Target level 5–15 ng/mL；IV 不可混 Acyclovir' },
     { name: 'Mycophenolate (Myfortic)', category: 'GVHD', stdDose: 'Allo RIC: 2# BIDAC；PTCy: 10.8 mg/kg TIDAC（上限 4# TID）', basis: 'Adj BW', round: '180 mg/cap 整顆', diluent: 'PO', note: 'Allo D0 輸後 4–6h 起；PTCy D+6 起；D+30 評估 taper' },
@@ -2188,7 +2191,7 @@ window.BMT_REFERENCE_DATA = {
     { name: 'Bendamustine', category: 'Auto', stdDose: '200 mg/m²/day QD ×2d', basis: 'Adj BSA', round: 'MROUND 10 mg', diluent: 'N/S 500 ml IF 2 hrs', note: '自費，取代 BCNU (Benda-EAM)' },
     { name: 'Etoposide', category: 'Auto', stdDose: '200 mg/m²/day QD ×4d', basis: 'Adj BSA', round: 'MROUND 10 mg', diluent: 'N/S 1000 ml IF 4–6 hrs', note: 'BEAM / Benda-EAM 標準劑量' },
     { name: 'Cytarabine (Ara-C)', category: 'Auto', stdDose: '100–200 mg/m²/dose BID ×4d (共 8 劑)', basis: 'Adj BSA', round: 'MROUND 20 mg', diluent: 'N/S 250 ml IF 2 hrs BID', note: '請向 VS 確認 100 或 200；每次前 30m 給 Solu-Medrol 40mg IVP' },
-    { name: 'Melphalan', category: 'Auto / Allo', stdDose: 'BEAM 140 mg/m²；MM 200 mg/m²；GemBuMel 60 mg/m² ×2d', basis: 'Adj BSA', round: 'MROUND 10 mg', diluent: 'N/S 50–250 ml IF ≤30 min', note: '必須與幹細胞輸注間隔 > 24 小時' },
+    { name: 'Melphalan', category: 'Auto / Allo', stdDose: 'BEAM 140 mg/m²；MM 100 或 70 mg/m² ×2d (D-4~D-3)；GemBuMel 60 mg/m² ×2d', basis: 'Adj BSA', round: 'MROUND 10 mg', diluent: 'N/S 50–250 ml IF ≤30 min', note: '必須與幹細胞輸注間隔 > 24 小時' },
     { name: 'Gemcitabine', category: 'Auto', stdDose: '1875 mg/m² (舊版 HL 2775 mg/m²) D-7 & D-3', basis: 'Adj BSA', round: 'MROUND 20 mg (200mg/vial)', diluent: 'N/S 稀釋至總量 500 ml (Pump 10 mg/m²/min)', note: '自費，固定流速 10 mg/m²/min' }
   ],
 
@@ -2887,8 +2890,8 @@ window.BMTCalc = (function () {
     };
 
     const pushParenInner = (inner) => {
-      // Highlight dates (11/16 ~ 11/20, 2026/11/16) AND calculated doses inside parens (Filgrastim 375 mcg, total 1200 cGy)
-      const innerRe = /(\d{4}\/\d{1,2}\/\d{1,2}|\d{1,2}\/\d{1,2})(?:\s*[~～-]\s*(?:\d{4}\/\d{1,2}\/\d{1,2}|\d{1,2}\/\d{1,2}))?|(Filgrastim\s+)(\d+(?:\.\d+)?\s*mcg)\b|(total\s+)(\d+(?:\.\d+)?\s*cGy)\b/g;
+      // Highlight dates (11/16 ~ 11/20, 2026/11/16) AND calculated doses inside parens (Filgrastim 375 mcg, total 1200 cGy, 總劑量 425 mg)
+      const innerRe = /(\d{4}\/\d{1,2}\/\d{1,2}|\d{1,2}\/\d{1,2})(?:\s*[~～-]\s*(?:\d{4}\/\d{1,2}\/\d{1,2}|\d{1,2}\/\d{1,2}))?|(Filgrastim\s+)(\d+(?:\.\d+)?\s*mcg)\b|(total\s+)(\d+(?:\.\d+)?\s*cGy)\b|(總劑量\s+)(\d+(?:\.\d+)?\s*mg)\b/g;
       let iLast = 0;
       let dm;
       while ((dm = innerRe.exec(inner)) !== null) {
@@ -2901,6 +2904,9 @@ window.BMTCalc = (function () {
         } else if (dm[4] !== undefined) {
           tokens.push({ text: dm[4], royalBlue: false });
           tokens.push({ text: dm[5], royalBlue: true });
+        } else if (dm[6] !== undefined) {
+          tokens.push({ text: dm[6], royalBlue: false });
+          tokens.push({ text: dm[7], royalBlue: true });
         }
         iLast = dm.index + dm[0].length;
       }
@@ -2923,13 +2929,18 @@ window.BMTCalc = (function () {
         tokens.push({ text: m[2], royalBlue: true });
       } else {
         const inner = m[4];
-        tokens.push({ text: '(', royalBlue: false });
-        if (/\d{1,2}\/\d{1,2}|Filgrastim\s+\d|total\s+\d+(?:\.\d+)?\s*cGy/i.test(inner)) {
-          pushParenInner(inner);
+        // Red clinical hints: Feburic (已達CR可考慮拿掉) and Letermovir NHI condition notes
+        if (/^(?:已達CR可考慮拿掉|符合健保條件|不符合健保條件|請輸入)/.test(inner.trim())) {
+          tokens.push({ text: `(${inner})`, royalBlue: false, red: true });
         } else {
-          tokens.push({ text: inner, royalBlue: false });
+          tokens.push({ text: '(', royalBlue: false });
+          if (/\d{1,2}\/\d{1,2}|Filgrastim\s+\d|total\s+\d+(?:\.\d+)?\s*cGy|總劑量\s+\d+(?:\.\d+)?\s*mg/i.test(inner)) {
+            pushParenInner(inner);
+          } else {
+            tokens.push({ text: inner, royalBlue: false });
+          }
+          tokens.push({ text: ')', royalBlue: false });
         }
-        tokens.push({ text: ')', royalBlue: false });
       }
       last = m.index + m[0].length;
     }
@@ -2954,6 +2965,32 @@ window.BMTCalc = (function () {
       });
     });
     return out;
+  }
+
+  // rATG (Thymoglobuline 25 mg/vial): round total dose to nearest 25 mg,
+  // split across days/doses with earlier day(s) receiving more (e.g. 70kg * 6 = 420 -> 425 -> D1: 225, D2: 200)
+  function calcAtgDoses(bw, dosePerKg, days, freq) {
+    const numDays = Math.max(1, (days && days.length) || 1);
+    const mult = freq === 'BID' ? 2 : 1;
+    const totalDoses = numDays * mult;
+    const totalMgKg = roundTo((Number(dosePerKg) || 0) * totalDoses, 1);
+    const totalMg = mround((Number(bw) || 0) * totalMgKg, 25);
+    const totalVials = Math.round(totalMg / 25);
+    const baseVials = Math.floor(totalVials / totalDoses);
+    const remVials = totalVials % totalDoses;
+
+    const perDoseMg = [];
+    for (let i = 0; i < totalDoses; i++) {
+      perDoseMg.push((baseVials + (i < remVials ? 1 : 0)) * 25);
+    }
+    const perDayMg = [];
+    for (let dIdx = 0; dIdx < numDays; dIdx++) {
+      let sum = 0;
+      for (let m = 0; m < mult; m++) sum += perDoseMg[dIdx * mult + m];
+      perDayMg.push(sum);
+    }
+    const allEqual = perDayMg.every(v => v === perDayMg[0]);
+    return { totalMgKg, totalMg, totalVials, perDoseMg, perDayMg, allEqual };
   }
 
   // Auto-suggest G-CSF (Filgrastim 5 ug/kg): nearest combination of 300 mcg & 75 mcg vials; diluent = dose / 15 ml
@@ -3173,17 +3210,19 @@ window.BMTCalc = (function () {
         conditioningOrders.push('# On Foley before endoxan, remove ASAP after D0 if no hematuria; or self-voiding q2h, to ensure urine output >= 150 cc/hr until 36 hrs after completion of last-dose cyclophosphamide (optional)');
       }
 
-      // rATG
+      // rATG (25mg/vial: total rounded to nearest 25mg, front-loaded so Day 1 receives more when split)
       if (D.ratg && D.ratg.enabled) {
         const days = rangeDays(D.ratg.startD, D.ratg.endD);
         expandCols(days);
-        const dose = mround(bw * (Number(D.ratg.dose) || 2.5), 10);
-        const totalMgKg = roundTo((Number(D.ratg.dose) || 2.5) * days.length * (D.ratg.freq === 'BID' ? 2 : 1), 1);
+        const atg = calcAtgDoses(bw, Number(D.ratg.dose) || 2.5, days, D.ratg.freq || 'QD');
         const dil = (D.ratg.diluent || '').trim() || 'N/S 500 ml';
         scheduleRows.push({ name: 'rATG', days: new Set(days), group: 'gvhd' });
         const dStr = fmtDayRange(D.ratg.startD, D.ratg.endD, d0Date);
+        const atgHeader = atg.allEqual
+          ? `# ATG (Thymoglobuline 25mg/vial) (${D.ratg.dose} mg/kg, total ${atg.totalMgKg} mg/kg) 取 ${atg.perDoseMg[0]} mg in ${dil} IF 12 hrs ${D.ratg.freq || 'QD'} on ${dStr}`
+          : `# ATG (Thymoglobuline 25mg/vial) (${D.ratg.dose} mg/kg, total ${atg.totalMgKg} mg/kg, 總劑量 ${atg.totalMg} mg) ${days.map((d, idx) => `取 ${atg.perDayMg[idx]} mg on ${fmtDayLabel(d)} (${fmtMD(dayDate(d))})`).join('，')} in ${dil} IF 12 hrs ${D.ratg.freq || 'QD'}`;
         conditioningOrders.push(
-          `# ATG (Thymoglobuline 25mg/vial) (${D.ratg.dose} mg/kg, total ${totalMgKg} mg/kg) 取 ${dose} mg in ${dil} IF 12 hrs ${D.ratg.freq || 'QD'} on ${dStr}\n` +
+          `${atgHeader}\n` +
           `Pre-medication:\n` +
           `# Methylprednisolone 40 mg Q12H IV 30 min before ATG on ${dStr}\n` +
           `# Diphenhydramine (30 mg) 1 amp IV 30 min before ATG on ${dStr}\n` +
@@ -3233,7 +3272,7 @@ window.BMTCalc = (function () {
         const days = rangeDays(startD, maxCol);
         scheduleRows.push({ name: 'MMF', days: new Set(days), group: 'gvhd' });
         conditioningOrders.push(
-          `# Mycophenolate (Myfortic) (180 mg/cap) ${D.mmf.doseTab || 2}# ${D.mmf.freq || 'BIDAC'} PO since ${fmtDayLabel(startD)} (${fmtMD(dayDate(startD))}), begin 4-6 hours after stem cells infusion, and start to taper after D+30, consider DC on D+61 (註：若改用 TID 換算公式為 10.8 mg/kg TID，最高不超過 4# TID)`
+          `# Mycophenolate (Myfortic) (180 mg/cap) ${D.mmf.doseTab || 2}# ${D.mmf.freq || 'BIDAC'} PO since ${fmtDayLabel(startD)} (${fmtMD(dayDate(startD))}), begin 4-6 hours after stem cells infusion, and start to taper after D+30, consider DC on D+61`
         );
       }
 
@@ -3374,16 +3413,19 @@ window.BMTCalc = (function () {
         conditioningOrders.push('# On Foley before D+3 endoxan, remove ASAP after D+5 if no hematuria; or self-voiding q2h, to ensure urine output >= 150 cc/hr until 36 hrs after completion of last-dose cyclophosphamide (optional)');
       }
 
-      // rATG (optional in PTCy)
+      // rATG (optional in PTCy; 25mg/vial total rounded to nearest 25mg, front-loaded)
       if (D.ratg && D.ratg.enabled) {
         const days = rangeDays(D.ratg.startD, D.ratg.endD);
         expandCols(days);
-        const dose = mround(bw * (Number(D.ratg.dose) || 2), 10);
+        const atg = calcAtgDoses(bw, Number(D.ratg.dose) || 2, days, D.ratg.freq || 'QD');
         const dil = (D.ratg.diluent || '').trim() || 'N/S 500 ml';
         const dStr = fmtDayRange(D.ratg.startD, D.ratg.endD, d0Date);
         scheduleRows.push({ name: 'rATG', days: new Set(days), group: 'gvhd' });
+        const atgHeader = atg.allEqual
+          ? `# ATG (Thymoglobuline 25mg/vial) (${D.ratg.dose} mg/kg, total ${atg.totalMgKg} mg/kg) 取 ${atg.perDoseMg[0]} mg in ${dil} IF 12 hrs ${D.ratg.freq || 'QD'} on ${dStr}`
+          : `# ATG (Thymoglobuline 25mg/vial) (${D.ratg.dose} mg/kg, total ${atg.totalMgKg} mg/kg, 總劑量 ${atg.totalMg} mg) ${days.map((d, idx) => `取 ${atg.perDayMg[idx]} mg on ${fmtDayLabel(d)} (${fmtMD(dayDate(d))})`).join('，')} in ${dil} IF 12 hrs ${D.ratg.freq || 'QD'}`;
         conditioningOrders.push(
-          `# ATG (Thymoglobuline 25mg/vial) (${D.ratg.dose} mg/kg) 取 ${dose} mg in ${dil} IF 12 hrs ${D.ratg.freq || 'QD'} on ${dStr}\n` +
+          `${atgHeader}\n` +
           `Pre-medication:\n` +
           `# Methylprednisolone 80 mg IV 30 min before ATG on ${dStr}\n` +
           `# Diphenhydramine (30 mg) 1 amp IV 30 min before ATG on ${dStr}\n` +
@@ -3434,7 +3476,7 @@ window.BMTCalc = (function () {
         const tabs = Math.min(4, Math.max(1, Math.round((bw * 10.8) / 180)));
         scheduleRows.push({ name: 'MMF', days: new Set(days), group: 'gvhd' });
         conditioningOrders.push(
-          `# Mycophenolate (Myfortic) (180 mg/cap) ${tabs}# TIDAC PO since ${fmtDayLabel(startD)} (${fmtMD(dayDate(startD))}), start to taper after D+30, consider DC on D+61 (計算公式: 10.8 mg/kg TID，由 Cellcept 15 mg/kg TID 換算，最高不超過 4# TID)`
+          `# Mycophenolate (Myfortic) (180 mg/cap) ${tabs}# TIDAC PO since ${fmtDayLabel(startD)} (${fmtMD(dayDate(startD))}), start to taper after D+30, consider DC on D+61`
         );
       }
 
@@ -3699,7 +3741,7 @@ window.BMTCalc = (function () {
       medOrders.push(`# BM study on admission day (${fmtDayLabel(admD)}, ${fmtMD(admDate)})`);
     }
 
-    // Anti-emetics
+    // Anti-emetics (Emend split onto indented ">" lines by 健保 / 自費 / 健保)
     const antiemeticOrders = [];
     const ae = state.antiemetics;
     const hasPtcy = mode === 'ptcy' && D.ptcy && D.ptcy.enabled;
@@ -3707,39 +3749,32 @@ window.BMTCalc = (function () {
     const day4D = chemoStart + 3;
     const hasDay4 = chemoEnd >= day4D;
 
+    const emendLines = ['1. Aprepitant (Emend)'];
     if (ae.emendMode === 'IV') {
-      // IV 150mg Q3D: chemo day 1 QD, chemo day 4 QD (if chemo >= 4 days), plus PTCy day 1 QD
+      // IV 150mg Q3D: chemo day 1 QD (健保), chemo day 4 QD (自費 if >=4d), plus PTCy day 1 QD (健保)
+      emendLines.push(`> 150 mg IV QD (Q3D) on ${fmtDayLabel(chemoStart)} (${fmtMD(dayDate(chemoStart))}) (健保)`);
+      if (hasDay4) {
+        emendLines.push(`> 150 mg IV QD (Q3D) on ${fmtDayLabel(day4D)} (${fmtMD(dayDate(day4D))}) (自費)`);
+      }
       if (hasPtcy) {
-        if (hasDay4) {
-          antiemeticOrders.push(
-            `1. Aprepitant (Emend) > 150 mg IV QD (Q3D) on ${fmtDayLabel(chemoStart)} (${fmtMD(dayDate(chemoStart))}), ${fmtDayLabel(day4D)} (${fmtMD(dayDate(day4D))}), and ${fmtDayLabel(ptcyStartD)} (${fmtMD(dayDate(ptcyStartD))}) (健保)`
-          );
-        } else {
-          antiemeticOrders.push(
-            `1. Aprepitant (Emend) > 150 mg IV QD (Q3D) on ${fmtDayLabel(chemoStart)} (${fmtMD(dayDate(chemoStart))}) and ${fmtDayLabel(ptcyStartD)} (${fmtMD(dayDate(ptcyStartD))}) (健保)`
-          );
-        }
-      } else if (hasDay4) {
-        antiemeticOrders.push(
-          `1. Aprepitant (Emend) > 150 mg IV QD (Q3D) on ${fmtDayLabel(chemoStart)} (${fmtMD(dayDate(chemoStart))}) (健保), then 150 mg IV QD on ${fmtDayLabel(day4D)} (${fmtMD(dayDate(day4D))}) (自費)`
-        );
-      } else {
-        antiemeticOrders.push(
-          `1. Aprepitant (Emend) > 150 mg IV QD (Q3D) on ${fmtDayLabel(chemoStart)} (${fmtMD(dayDate(chemoStart))}) (健保)`
-        );
+        emendLines.push(`> 150 mg IV QD (Q3D) on ${fmtDayLabel(ptcyStartD)} (${fmtMD(dayDate(ptcyStartD))}) (健保)`);
       }
     } else {
       // PO: first 3 days 125-80-80 (健保), followed by 125-125-125 (自費), plus 125-80-80 (健保) on PTCy
-      let em = `1. Aprepitant (Emend) > 125 mg PO QD on ${fmtDayLabel(chemoStart)} (${fmtMD(dayDate(chemoStart))}), then 80 mg PO QD on ${fmtDayLabel(chemoStart + 1)} ~ ${fmtDayLabel(chemoStart + 2)} (${fmtMD(dayDate(chemoStart + 1))} ~ ${fmtMD(dayDate(chemoStart + 2))}) (健保)`;
+      emendLines.push(
+        `> 125 mg PO QD on ${fmtDayLabel(chemoStart)} (${fmtMD(dayDate(chemoStart))}), then 80 mg PO QD on ${fmtDayLabel(chemoStart + 1)} ~ ${fmtDayLabel(chemoStart + 2)} (${fmtMD(dayDate(chemoStart + 1))} ~ ${fmtMD(dayDate(chemoStart + 2))}) (健保)`
+      );
       if (hasDay4) {
         const extEnd = Math.min(chemoEnd, chemoStart + 5);
-        em += `, then 125 mg PO QD on ${fmtDayRange(day4D, extEnd, d0Date)} (自費)`;
+        emendLines.push(`> 125 mg PO QD on ${fmtDayRange(day4D, extEnd, d0Date)} (自費)`);
       }
       if (hasPtcy) {
-        em += `, then 125 mg PO QD on ${fmtDayLabel(ptcyStartD)} (${fmtMD(dayDate(ptcyStartD))}), then 80 mg PO QD on ${fmtDayLabel(ptcyStartD + 1)} ~ ${fmtDayLabel(ptcyStartD + 2)} (${fmtMD(dayDate(ptcyStartD + 1))} ~ ${fmtMD(dayDate(ptcyStartD + 2))}) (健保)`;
+        emendLines.push(
+          `> 125 mg PO QD on ${fmtDayLabel(ptcyStartD)} (${fmtMD(dayDate(ptcyStartD))}), then 80 mg PO QD on ${fmtDayLabel(ptcyStartD + 1)} ~ ${fmtDayLabel(ptcyStartD + 2)} (${fmtMD(dayDate(ptcyStartD + 1))} ~ ${fmtMD(dayDate(ptcyStartD + 2))}) (健保)`
+        );
       }
-      antiemeticOrders.push(em);
     }
+    antiemeticOrders.push(emendLines.join('\n'));
 
     const s5ht3Name = ae.serotoninAgent === 'Aloxi'
       ? 'Palonosetron (Aloxi) 1 amp IV QOD before chemotherapy'
@@ -4314,6 +4349,7 @@ window.BMTCalc = (function () {
     evalLetermovirNHI,
     tokenizeOrderDates,
     tokenizePositiveBold,
+    calcAtgDoses,
     suggestGcsf,
     formatCd34Display,
     deriveGvhdProphylaxis,
@@ -4443,16 +4479,18 @@ window.BMTDocx = (function () {
       .replace(/'/g, '&apos;');
   }
 
-  const FONT_MAIN = 'Calibri';
-  const SZ_SCHED = 20;  // 10 pt (conditioning schedule table)
-  const SZ_BODY = 24;   // 12 pt
-  const SZ_TITLE = 28;  // 14 pt
+  const FONT_EN = 'Calibri';
+  const FONT_ZH = '微軟正黑體';
+  const SZ_SCHED = 20;         // 10 pt (conditioning schedule table)
+  const SZ_BODY = 24;          // 12 pt
+  const SZ_TITLE = 28;         // 14 pt
   const LINE_EXACT_18PT = 360; // 18 pt exact line height (18 * 20 twips)
+  const LINE_MIN_16PT = 320;   // 16 pt minimum line height for Page 3 (16 * 20 twips)
 
   function runXml(text, opts = {}) {
     const sz = opts.sz || SZ_BODY;
     const rPr = [
-      `<w:rFonts w:ascii="${FONT_MAIN}" w:hAnsi="${FONT_MAIN}" w:eastAsia="${FONT_MAIN}" w:cs="${FONT_MAIN}"/>`,
+      `<w:rFonts w:ascii="${FONT_EN}" w:hAnsi="${FONT_EN}" w:eastAsia="${FONT_ZH}" w:cs="${FONT_EN}"/>`,
       `<w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/>`,
       opts.bold ? '<w:b/><w:bCs/>' : '',
       opts.italic ? '<w:i/>' : '',
@@ -4549,7 +4587,7 @@ window.BMTDocx = (function () {
       runXml(tk.text, {
         sz: opts.sz || SZ_BODY,
         bold: Boolean(opts.bold || tk.royalBlue),
-        color: tk.royalBlue ? ROYAL_BLUE : opts.color
+        color: tk.red ? PURE_RED : (tk.royalBlue ? ROYAL_BLUE : opts.color)
       })
     );
     return pXml(runs, opts);
@@ -4687,7 +4725,7 @@ window.BMTDocx = (function () {
     const days = calc.scheduleDays;
     const labelW = 1900;
     const colW = Math.floor((10466 - labelW) / Math.max(1, days.length));
-    const cp = (txt, opts = {}) => pXml(txt, { sz: SZ_SCHED, align: 'center', spaceBefore: 0, spaceAfter: 0, line: LINE_EXACT_18PT, ...opts });
+    const cp = (txt, opts = {}) => pXml(txt, { sz: SZ_SCHED, align: 'center', spaceBefore: 0, spaceAfter: 0, line: LINE_MIN_16PT, lineRule: 'atLeast', ...opts });
     const sc = (content, opts = {}) => cellXml(content, { padV: 18, padH: 30, ...opts });
     const rows = [];
 
@@ -4805,11 +4843,20 @@ window.BMTDocx = (function () {
     }
 
     body.push(pXml('# Anti-emesis order:', { bold: true, spaceBefore: 80 }));
-    calc.antiemeticOrders.forEach(a => body.push(richOrderP(a, { indentLeft: 240, spaceBefore: 15, spaceAfter: 25 })));
+    calc.antiemeticOrders.forEach(a => {
+      if (a.includes('\n')) {
+        a.split('\n').forEach((ln, idx) => {
+          body.push(richOrderP(ln, { indentLeft: idx === 0 ? 240 : 560, spaceBefore: idx === 0 ? 15 : 5, spaceAfter: 15 }));
+        });
+      } else {
+        body.push(richOrderP(a, { indentLeft: 240, spaceBefore: 15, spaceAfter: 25 }));
+      }
+    });
 
-    // Page 3: Section (2) Conditioning regimen / Acute GVHD prophylaxis
+    // Page 3: Section (2) Conditioning regimen / Acute GVHD prophylaxis (minimum line height 16pt = 320 dxa)
+    const p3Line = { line: LINE_MIN_16PT, lineRule: 'atLeast' };
     const sec2Title = state.mode === 'auto' ? '(2) Conditioning regimen' : '(2) Conditioning and Acute GVHD prophylaxis order';
-    body.push(pXml(sec2Title, { sz: SZ_TITLE, bold: true, color: '1774D3', borderBottom: true, pageBreakBefore: true, spaceBefore: 0, spaceAfter: 80 }));
+    body.push(pXml(sec2Title, { ...p3Line, sz: SZ_TITLE, bold: true, color: '1774D3', borderBottom: true, pageBreakBefore: true, spaceBefore: 0, spaceAfter: 80 }));
     const a = calc.anthro;
     const basisNote = state.dosingBasis === 'actual'
       ? '(2012 ASCO建議藥物劑量以Actual BW/BSA計算；以下藥物劑量以 Actual BW 及 Actual BSA 計算)'
@@ -4819,31 +4866,30 @@ window.BMTDocx = (function () {
       runXml(`Adjusted BW: ${a.adjBW.toFixed(1)} kg`, { bold: true, color: PURE_RED }),
       runXml(', '),
       runXml(`Adjusted BSA: ${a.adjBSA.toFixed(2)} m2`, { bold: true, color: PURE_RED })
-    ]));
-    body.push(pXml('Formula: Ideal BW (BMI 22) = (Height in m)² × 22；Adjusted BW = Ideal BW + 0.25 × (Actual BW − Ideal BW)（若 Actual BW < Ideal BW 則取 Actual BW）；BSA (Mosteller) = √(Height(cm) × BW(kg) / 3600)', { sz: SZ_BODY, color: '555555', spaceBefore: 10, spaceAfter: 20 }));
-    body.push(pXml(basisNote, { sz: SZ_BODY, color: '555555', spaceAfter: 80 }));
+    ], p3Line));
+    body.push(pXml(basisNote, { ...p3Line, sz: SZ_BODY, color: '555555', spaceAfter: 80 }));
 
     // Schedule Table
     body.push(buildScheduleTable(calc));
-    body.push(pXml('', { spaceBefore: 30, spaceAfter: 30 }));
 
-    // Conditioning Drug Orders (format ATG "Pre-medication:" bold + indented sub-orders)
-    calc.conditioningOrders.forEach(order => {
+    // Conditioning Drug Orders (Page 3: min 16pt; format ATG "Pre-medication:" bold + indented sub-orders)
+    calc.conditioningOrders.forEach((order, oIdx) => {
+      const topGap = oIdx === 0 ? 80 : 25;
       if (order.includes('\nPre-medication:\n')) {
         const lines = order.split('\n');
         let inPremed = false;
         lines.forEach(ln => {
           if (ln.trim() === 'Pre-medication:') {
             inPremed = true;
-            body.push(pXml('Pre-medication:', { bold: true, spaceBefore: 20, spaceAfter: 10 }));
+            body.push(pXml('Pre-medication:', { ...p3Line, bold: true, spaceBefore: 20, spaceAfter: 10 }));
           } else if (inPremed) {
-            body.push(richOrderP(ln, { indentLeft: 360, spaceBefore: 10, spaceAfter: 15 }));
+            body.push(richOrderP(ln, { ...p3Line, indentLeft: 360, spaceBefore: 10, spaceAfter: 15 }));
           } else {
-            body.push(richOrderP(ln, { spaceBefore: 25, spaceAfter: 20 }));
+            body.push(richOrderP(ln, { ...p3Line, spaceBefore: topGap, spaceAfter: 20 }));
           }
         });
       } else {
-        body.push(richOrderP(order, { spaceBefore: 25, spaceAfter: 35 }));
+        body.push(richOrderP(order, { ...p3Line, spaceBefore: topGap, spaceAfter: 30 }));
       }
     });
 
@@ -4898,7 +4944,6 @@ window.BMTDocx = (function () {
     body.push(pXml(labText));
 
     // Care Team Signatures: right-aligned, NO bold, physician names in Royal Blue (#0007FF), 12pt
-    body.push(pXml('', { spaceBefore: 100, spaceAfter: 40 }));
     const sigItems = [
       ['Primary Care: ', state.primaryCare || ''],
       ['BMT CR: ', state.bmtCr || ''],
@@ -4906,10 +4951,10 @@ window.BMTDocx = (function () {
       ['Attending Physician: ', state.vs || ''],
       ['BMT unit director: ', state.director || '姚明']
     ].filter(Boolean);
-    sigItems.forEach(([label, name]) => {
+    sigItems.forEach(([label, name], sIdx) => {
       const runs = [runXml(label, { sz: SZ_BODY, bold: false })];
       if (name) runs.push(runXml(name, { sz: SZ_BODY, bold: false, color: ROYAL_BLUE }));
-      body.push(pXml(runs, { align: 'right', spaceBefore: 20, spaceAfter: 25 }));
+      body.push(pXml(runs, { align: 'right', spaceBefore: sIdx === 0 ? 180 : 20, spaceAfter: 25 }));
     });
 
     const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -4931,6 +4976,7 @@ window.BMTDocx = (function () {
   <Default Extension="jpg" ContentType="image/jpeg"/>
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
   <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+  <Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/>
 </Types>`;
 
     const rootRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -4941,15 +4987,23 @@ window.BMTDocx = (function () {
     const docRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  <Relationship Id="rIdSettings" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>
   ${includeAboImg ? '<Relationship Id="rIdAboImg" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.jpg"/>' : ''}
 </Relationships>`;
+
+    const settingsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:view w:val="print"/>
+  <w:zoom w:percent="100"/>
+  <w:doNotDisplayPageBoundaries/>
+</w:settings>`;
 
     const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:docDefaults>
     <w:rPrDefault>
       <w:rPr>
-        <w:rFonts w:ascii="${FONT_MAIN}" w:hAnsi="${FONT_MAIN}" w:eastAsia="${FONT_MAIN}" w:cs="${FONT_MAIN}"/>
+        <w:rFonts w:ascii="${FONT_EN}" w:hAnsi="${FONT_EN}" w:eastAsia="${FONT_ZH}" w:cs="${FONT_EN}"/>
         <w:sz w:val="${SZ_BODY}"/><w:szCs w:val="${SZ_BODY}"/>
       </w:rPr>
     </w:rPrDefault>
@@ -4966,7 +5020,8 @@ window.BMTDocx = (function () {
       { name: '_rels/.rels', data: strToBytes(rootRelsXml) },
       { name: 'word/document.xml', data: strToBytes(documentXml) },
       { name: 'word/_rels/document.xml.rels', data: strToBytes(docRelsXml) },
-      { name: 'word/styles.xml', data: strToBytes(stylesXml) }
+      { name: 'word/styles.xml', data: strToBytes(stylesXml) },
+      { name: 'word/settings.xml', data: strToBytes(settingsXml) }
     ];
     if (includeAboImg) {
       zipFiles.push({ name: 'word/media/image1.jpg', data: b64ToBytes(window.ABO_TABLE_IMAGE_B64) });
@@ -5055,6 +5110,7 @@ window.BMTDocx = (function () {
     const tokens = window.BMTCalc.tokenizeOrderDates(text);
     return tokens.map(tk => {
       const safe = escHtml(tk.text);
+      if (tk.red) return `<span style="color:#ff0000;">${safe}</span>`;
       return tk.royalBlue ? `<span class="royal-blue-date">${safe}</span>` : safe;
     }).join('');
   }
@@ -5254,11 +5310,11 @@ window.BMTDocx = (function () {
             </tr>
             <tr><td class="lbl" colspan="2">Blood type</td><td colspan="2"><select data-path="recipient.bloodType">${btOpts(r.bloodType)}</select></td></tr>
             <tr><td class="lbl" colspan="2">Test date</td><td colspan="2"><input data-path="recipient.testDate" value="${escHtml(r.testDate)}" placeholder="YYYY/MM/DD"></td></tr>
-            <tr><td class="lbl" colspan="2">HBV</td><td colspan="2"><textarea data-path="recipient.hbv">${escHtml(r.hbv)}</textarea></td></tr>
+            <tr><td class="lbl" colspan="2">HBV</td><td colspan="2"><textarea rows="4" data-path="recipient.hbv">${escHtml(r.hbv)}</textarea></td></tr>
             <tr><td class="lbl" colspan="2">HCV</td><td colspan="2"><input data-path="recipient.hcv" value="${escHtml(r.hcv)}"></td></tr>
-            <tr><td class="lbl" colspan="2">CMV</td><td colspan="2"><textarea data-path="recipient.cmv">${escHtml(r.cmv)}</textarea></td></tr>
+            <tr><td class="lbl" colspan="2">CMV</td><td colspan="2"><textarea rows="3" data-path="recipient.cmv">${escHtml(r.cmv)}</textarea></td></tr>
             <tr><td class="lbl" rowspan="2">EBV</td><td class="sublbl">VCA</td><td colspan="2"><input data-path="recipient.ebvVca" value="${escHtml(r.ebvVca)}"></td></tr>
-            <tr><td class="sublbl">Others</td><td colspan="2"><textarea data-path="recipient.ebvOthers">${escHtml(r.ebvOthers)}</textarea></td></tr>
+            <tr><td class="sublbl">Others</td><td colspan="2"><textarea rows="2" data-path="recipient.ebvOthers">${escHtml(r.ebvOthers)}</textarea></td></tr>
             <tr><td class="lbl" colspan="2">HIV</td><td colspan="2"><input data-path="recipient.hiv" value="${escHtml(r.hiv)}"></td></tr>
             <tr><td class="lbl" colspan="2">HTLV1+2</td><td colspan="2"><input data-path="recipient.htlv" value="${escHtml(r.htlv)}"></td></tr>
             <tr><td class="lbl" colspan="2">VZV</td><td colspan="2"><input data-path="recipient.vzv" value="${escHtml(r.vzv)}"></td></tr>
@@ -5332,24 +5388,24 @@ window.BMTDocx = (function () {
               <td colspan="2"><input data-path="donor.testDate" value="${escHtml(d.testDate)}"></td>
             </tr>
             <tr><td class="lbl" colspan="2">HBV</td>
-              <td colspan="2"><textarea data-path="recipient.hbv">${escHtml(r.hbv)}</textarea></td>
-              <td colspan="2"><textarea data-path="donor.hbv">${escHtml(d.hbv)}</textarea></td>
+              <td colspan="2"><textarea rows="4" data-path="recipient.hbv">${escHtml(r.hbv)}</textarea></td>
+              <td colspan="2"><textarea rows="4" data-path="donor.hbv">${escHtml(d.hbv)}</textarea></td>
             </tr>
             <tr><td class="lbl" colspan="2">HCV</td>
               <td colspan="2"><input data-path="recipient.hcv" value="${escHtml(r.hcv)}"></td>
               <td colspan="2"><input data-path="donor.hcv" value="${escHtml(d.hcv)}"></td>
             </tr>
             <tr><td class="lbl" colspan="2">CMV</td>
-              <td colspan="2"><textarea data-path="recipient.cmv">${escHtml(r.cmv)}</textarea></td>
-              <td colspan="2"><textarea data-path="donor.cmv">${escHtml(d.cmv)}</textarea></td>
+              <td colspan="2"><textarea rows="3" data-path="recipient.cmv">${escHtml(r.cmv)}</textarea></td>
+              <td colspan="2"><textarea rows="3" data-path="donor.cmv">${escHtml(d.cmv)}</textarea></td>
             </tr>
             <tr><td class="lbl" rowspan="2">EBV</td><td class="sublbl">VCA</td>
               <td colspan="2"><input data-path="recipient.ebvVca" value="${escHtml(r.ebvVca)}"></td>
               <td colspan="2"><input data-path="donor.ebvVca" value="${escHtml(d.ebvVca)}"></td>
             </tr>
             <tr><td class="sublbl">Others</td>
-              <td colspan="2"><textarea data-path="recipient.ebvOthers">${escHtml(r.ebvOthers)}</textarea></td>
-              <td colspan="2"><textarea data-path="donor.ebvOthers">${escHtml(d.ebvOthers)}</textarea></td>
+              <td colspan="2"><textarea rows="2" data-path="recipient.ebvOthers">${escHtml(r.ebvOthers)}</textarea></td>
+              <td colspan="2"><textarea rows="2" data-path="donor.ebvOthers">${escHtml(d.ebvOthers)}</textarea></td>
             </tr>
             <tr><td class="lbl" colspan="2">HIV</td>
               <td colspan="2"><input data-path="recipient.hiv" value="${escHtml(r.hiv)}"></td>
@@ -6039,7 +6095,15 @@ window.BMTDocx = (function () {
         const m = D.ptcy.mesnaOverrideMg !== undefined && D.ptcy.mesnaOverrideMg !== '' ? Number(D.ptcy.mesnaOverrideMg) : mAuto;
         setPill('pill-ptcy', `PTCy ${d} mg / Mesna ${m} mg x3`);
       }
-      if (D.ratg) setPill('pill-atg', `${mround(bw * (Number(D.ratg.dose) || 2.5), 10)} mg/day`);
+      if (D.ratg) {
+        const sD = Number(D.ratg.startD), eD = Number(D.ratg.endD);
+        const days = [];
+        for (let d = Math.min(sD, eD); d <= Math.max(sD, eD); d++) days.push(d);
+        const atg = window.BMTCalc.calcAtgDoses(bw, Number(D.ratg.dose) || 2.5, days, D.ratg.freq || 'QD');
+        setPill('pill-atg', atg.allEqual
+          ? `${atg.perDoseMg[0]} mg/${D.ratg.freq || 'QD'}（總 ${atg.totalMg} mg，共 ${atg.totalVials} 支）`
+          : `${atg.perDayMg.join(' / ')} mg（總 ${atg.totalMg} mg，共 ${atg.totalVials} 支）`);
+      }
       if (D.csa) setPill('pill-csa', `${mround(bw * (Number(D.csa.dose) || 1.5), 25)} mg ${D.csa.freq}`);
       if (D.tacrolimus) {
         const txt = D.tacrolimus.route === 'IV'
@@ -6360,12 +6424,18 @@ window.BMTDocx = (function () {
       ` : ''}
 
       <div class="order-line bold" style="margin-top:8px;"># Anti-emesis order:</div>
-      ${calc.antiemeticOrders.map(x => `<div class="order-line indent">${renderRichOrderHtml(x)}</div>`).join('')}
+      ${calc.antiemeticOrders.map(x => {
+        if (x.includes('\n')) {
+          return x.split('\n').map((ln, idx) =>
+            `<div class="order-line ${idx === 0 ? 'indent' : 'indent-sub'}">${renderRichOrderHtml(ln)}</div>`
+          ).join('');
+        }
+        return `<div class="order-line indent">${renderRichOrderHtml(x)}</div>`;
+      }).join('')}
 
       <div class="page-break-bar">第 3 頁</div>
       <h3 class="sec-title sec-page-break">${isAuto ? '(2) Conditioning regimen' : '(2) Conditioning and Acute GVHD prophylaxis order'}</h3>
       <div class="order-line"># Height: ${a.height} cm, Actual BW: ${a.actualBW} kg, Actual BSA: ${a.actualBSA.toFixed(2)} m2, <span class="adj-red">Adjusted BW: ${a.adjBW.toFixed(1)} kg</span>, <span class="adj-red">Adjusted BSA: ${a.adjBSA.toFixed(2)} m2</span></div>
-      <div class="order-line muted">Formula: Ideal BW (BMI 22) = (Height in m)² × 22；Adjusted BW = Ideal BW + 0.25 × (Actual BW − Ideal BW)（若 Actual BW &lt; Ideal BW 則取 Actual BW）；BSA (Mosteller) = √(Height(cm) × BW(kg) / 3600)</div>
       <div class="order-line muted">${basisNote}</div>
       ${schedHtml}
       ${calc.conditioningOrders.map(o => {
